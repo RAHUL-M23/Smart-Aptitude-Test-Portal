@@ -22,7 +22,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
 
   const fetchTestDetails = async () => {
     try {
-      const response = await fetch(`/api/tests/${testId}?userId=${user.id}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/${testId}?userId=${user.id}`);
       if (response.status === 403) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'You have already completed this test section and cannot retake it.');
@@ -97,7 +97,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
     const spentSeconds = Math.max(0, totalDurationSeconds - timeLeft);
 
     try {
-      const response = await fetch(`/api/tests/${testId}/submit`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/${testId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

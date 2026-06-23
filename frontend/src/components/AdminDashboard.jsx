@@ -47,7 +47,7 @@ export default function AdminDashboard({ user }) {
   const fetchResults = async () => {
     try {
       setLoadingResults(true);
-      const response = await fetch('/api/results');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results`);
       if (!response.ok) throw new Error('Failed to load student results');
       const data = await response.json();
       setResults(data);
@@ -60,7 +60,7 @@ export default function AdminDashboard({ user }) {
 
   const fetchTests = async () => {
     try {
-      const response = await fetch('/api/tests');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests`);
       if (response.ok) {
         const data = await response.json();
         setTests(data);
@@ -80,7 +80,7 @@ export default function AdminDashboard({ user }) {
       setQuestionsError('');
       
       // Admin questions endpoint with role constraint check in request header
-      const response = await fetch(`/api/tests/admin/${testId}/questions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/admin/${testId}/questions`, {
         headers: {
           'X-User-Role': 'ROLE_ADMIN' // Access constraint validation
         }
@@ -154,7 +154,7 @@ export default function AdminDashboard({ user }) {
       return;
     }
     try {
-      const response = await fetch(`/api/tests/admin/questions/${questionId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/admin/questions/${questionId}`, {
         method: 'DELETE',
         headers: {
           'X-User-Role': 'ROLE_ADMIN'
@@ -185,11 +185,11 @@ export default function AdminDashboard({ user }) {
     };
 
     try {
-      let url = '/api/tests/admin/questions';
+      let url = `${import.meta.env.VITE_API_URL || ''}/api/tests/admin/questions`;
       let method = 'POST';
 
       if (modalMode === 'edit') {
-        url = `/api/tests/admin/questions/${currentQuestionId}`;
+        url = `${import.meta.env.VITE_API_URL || ''}/api/tests/admin/questions/${currentQuestionId}`;
         method = 'PUT';
       }
 

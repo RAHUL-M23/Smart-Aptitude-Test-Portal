@@ -17,7 +17,7 @@ export default function StudentDashboard({ user, onSelectTest }) {
 
   const fetchTests = async () => {
     try {
-      const response = await fetch('/api/tests');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests`);
       if (!response.ok) throw new Error('Failed to load tests');
       const data = await response.json();
       setTests(data);
@@ -30,7 +30,7 @@ export default function StudentDashboard({ user, onSelectTest }) {
 
   const fetchAttempts = async () => {
     try {
-      const response = await fetch(`/api/results/student/${user.id}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results/student/${user.id}`);
       if (!response.ok) throw new Error('Failed to load test history');
       const data = await response.json();
       setAttempts(data);
