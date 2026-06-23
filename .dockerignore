@@ -1,0 +1,14 @@
+.git
+.gitignore
+**/.DS_Store
+**/.idea
+**/.vscode
+**/node_modules
+**/dist
+**/target
+**/*.log
+**/.mvn
+backend/mvnw
+backend/mvnw.cmd
+backend/HELP.md
+frontend/README.md
