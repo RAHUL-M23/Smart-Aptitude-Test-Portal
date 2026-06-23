@@ -12,7 +12,7 @@ public class CorsConfig implements WebMvcConfigurer {
         String allowedOriginsEnv = System.getenv("ALLOWED_ORIGINS");
         String[] origins = (allowedOriginsEnv != null && !allowedOriginsEnv.isEmpty()) 
             ? allowedOriginsEnv.split(",") 
-            : new String[]{"http://localhost:[*]", "http://127.0.0.1:[*]"};
+            : new String[]{"*"};
 
         registry.addMapping("/**")
                 .allowedOriginPatterns(origins)
