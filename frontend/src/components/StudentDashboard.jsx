@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-export default function StudentDashboard({ user, onSelectTest }) {
+export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) {
   const [tests, setTests] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [loadingTests, setLoadingTests] = useState(true);
   const [loadingAttempts, setLoadingAttempts] = useState(true);
   const [error, setError] = useState('');
-  
-  // Profile Modal State
-  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     fetchTests();
@@ -112,7 +109,7 @@ export default function StudentDashboard({ user, onSelectTest }) {
           <button 
             className="btn-nav" 
             style={{ borderColor: 'var(--color-secondary)', color: 'var(--color-secondary)' }}
-            onClick={() => setShowProfile(true)}
+            onClick={onOpenProfile}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             View Profile Settings
@@ -253,46 +250,6 @@ export default function StudentDashboard({ user, onSelectTest }) {
         )}
       </div>
 
-
-      {/* Profile Settings Modal Overlay (Requirement 4) */}
-      {showProfile && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', position: 'relative' }}>
-            <button 
-              onClick={() => setShowProfile(false)} 
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
-            >
-              &times;
-            </button>
-            <h2 className="section-title" style={{ borderLeftColor: 'var(--color-secondary)' }}>Profile Settings</h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Full Name:</span>
-                <span className="text-highlight" style={{ fontWeight: '600' }}>{user.name}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Email Address:</span>
-                <span className="text-highlight" style={{ fontWeight: '600' }}>{user.email}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>User Role:</span>
-                <span className="badge-role">Student Account</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                <span style={{ color: 'var(--color-primary)', fontWeight: '600' }}>Active Verified</span>
-              </div>
-
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-                <button className="btn-primary" onClick={() => setShowProfile(false)}>
-                  Close Profile Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

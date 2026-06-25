@@ -33,6 +33,12 @@ export default function AdminDashboard({ user }) {
   const [modalError, setModalError] = useState('');
   const [modalSubmitting, setModalSubmitting] = useState(false);
 
+  // Detailed Response Breakdown State
+  const [showBreakdownModal, setShowBreakdownModal] = useState(false);
+  const [selectedResultDetails, setSelectedResultDetails] = useState(null);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
+
   useEffect(() => {
     fetchResults();
     fetchTests();
@@ -225,6 +231,25 @@ export default function AdminDashboard({ user }) {
     return `${mins}m ${secs}s`;
   };
 
+  const handleViewDetails = async (resultRecord) => {
+    try {
+      setLoadingBreakdown(true);
+      setShowBreakdownModal(true);
+      setSelectedResultDetails(null);
+      setBreakdownError('');
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results/${resultRecord.resultId}/details`);
+      if (!response.ok) throw new Error('Failed to load breakdown details');
+      
+      const data = await response.json();
+      setSelectedResultDetails(data);
+    } catch (err) {
+      setBreakdownError(err.message || 'Error fetching breakdown');
+    } finally {
+      setLoadingBreakdown(false);
+    }
+  };
+
   // Student Marks Filtering
   const uniqueTests = ['All', ...new Set(results.map(r => r.test?.testName).filter(Boolean))];
   const filteredResults = results.filter((res) => {
@@ -390,6 +415,7 @@ export default function AdminDashboard({ user }) {
                     <th>Time Spent</th>
                     <th>Date & Time</th>
                     <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -400,6 +426,11 @@ export default function AdminDashboard({ user }) {
                         <td>
                           <div className="text-highlight">{res.user?.name}</div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.user?.email}</div>
+                          {res.user?.rollNumber && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>
+                              Roll: {res.user.rollNumber} | Dept: {res.user.department}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <div className="text-highlight">{res.test?.testName}</div>
@@ -430,6 +461,16 @@ export default function AdminDashboard({ user }) {
                               Fail
                             </span>
                           )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-nav"
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)', whiteSpace: 'nowrap' }}
+                            onClick={() => handleViewDetails(res)}
+                          >
+                            Details
+                          </button>
                         </td>
                       </tr>
                     );
@@ -694,6 +735,141 @@ export default function AdminDashboard({ user }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Detailed Response Breakdown Modal Overlay */}
+      {showBreakdownModal && (
+        <div className="modal-overlay" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+          <div className="glass-card modal-card" style={{ width: '100%', maxWidth: '750px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button 
+              type="button"
+              onClick={() => setShowBreakdownModal(false)} 
+              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem' }}
+              disabled={loadingBreakdown}
+            >
+              &times;
+            </button>
+            
+            {loadingBreakdown ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem 0' }}>
+                Fetching response breakdown details from database...
+              </div>
+            ) : breakdownError ? (
+              <div className="alert-box alert-error" style={{ marginTop: '1rem' }}>
+                <span>{breakdownError}</span>
+              </div>
+            ) : !selectedResultDetails ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem 0' }}>
+                No breakdown data available.
+              </div>
+            ) : (
+              <div>
+                <h2 className="section-title" style={{ borderLeftColor: 'var(--color-primary)', marginBottom: '1.5rem' }}>
+                  Response Breakdown
+                </h2>
+                
+                {/* Student Info & Test Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Student Name</div>
+                    <div className="text-highlight" style={{ fontSize: '1.05rem', fontWeight: '600' }}>{selectedResultDetails.result.user?.name}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Email</div>
+                    <div className="text-highlight" style={{ fontSize: '0.95rem' }}>{selectedResultDetails.result.user?.email}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Academic Info</div>
+                    <div className="text-highlight" style={{ fontSize: '0.95rem' }}>
+                      Roll: {selectedResultDetails.result.user?.rollNumber || 'N/A'}<br/>
+                      Dept: {selectedResultDetails.result.user?.department || 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Assessment Name</div>
+                    <div className="text-highlight" style={{ fontSize: '0.95rem', fontWeight: '600' }}>{selectedResultDetails.result.test?.testName}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Score & Percentage</div>
+                    <div className="text-highlight" style={{ fontSize: '0.95rem', fontWeight: '600' }}>
+                      {selectedResultDetails.result.score} / {selectedResultDetails.result.test?.totalMarks} ({Math.round(selectedResultDetails.result.percentage)}%)
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Time Elapsed</div>
+                    <div className="text-highlight" style={{ fontSize: '0.95rem' }}>{formatTimeSpent(selectedResultDetails.result.timeTaken)}</div>
+                  </div>
+                </div>
+                
+                {/* Question Details */}
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--text-main)' }}>Question & Answer Breakdown</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {selectedResultDetails.breakdown.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>
+                      No detailed response options were stored for this result record.
+                    </div>
+                  ) : (
+                    selectedResultDetails.breakdown.map((item, idx) => {
+                      const isCorrect = item.selectedAnswer !== null && item.selectedAnswer.trim().toLowerCase() === item.correctAnswer.trim().toLowerCase();
+                      
+                      const getOptionStyle = (optChar) => {
+                        const isSelected = item.selectedAnswer === optChar;
+                        const isRightOpt = item.correctAnswer === optChar;
+                        
+                        if (isSelected && isRightOpt) {
+                          return { border: '1px solid var(--color-primary)', background: 'rgba(16, 185, 129, 0.08)', color: 'var(--color-primary)' };
+                        } else if (isSelected && !isRightOpt) {
+                          return { border: '1px solid #ef4444', background: 'rgba(239, 68, 68, 0.08)', color: '#f87171' };
+                        } else if (isRightOpt) {
+                          return { border: '1px solid var(--color-primary)', background: 'rgba(16, 185, 129, 0.03)', color: 'var(--color-primary)', opacity: 0.85 };
+                        }
+                        return { border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)', opacity: 0.6 };
+                      };
+                      
+                      return (
+                        <div key={item.questionId} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1.25rem 1.5rem', background: 'rgba(255,255,255,0.01)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.8rem', fontWeight: '600' }}>
+                            <span style={{ color: 'var(--color-secondary)' }}>QUESTION #{idx + 1} (DB ID: {item.questionId})</span>
+                            {item.selectedAnswer === null || item.selectedAnswer === '' ? (
+                              <span style={{ color: 'var(--text-muted)' }}>Not Attempted</span>
+                            ) : isCorrect ? (
+                              <span style={{ color: 'var(--color-primary)' }}>Correct ✓</span>
+                            ) : (
+                              <span style={{ color: '#ef4444' }}>Incorrect ✗ (Selected: {item.selectedAnswer})</span>
+                            )}
+                          </div>
+                          <div className="text-highlight" style={{ fontSize: '1.05rem', fontWeight: '500', marginBottom: '1rem', lineHeight: '1.4' }}>
+                            {item.questionText}
+                          </div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', fontSize: '0.9rem' }}>
+                            <div style={{ padding: '0.6rem 0.85rem', borderRadius: '6px', transition: 'all 0.2s', ...getOptionStyle('A') }}>
+                              <strong>A:</strong> {item.optiona}
+                            </div>
+                            <div style={{ padding: '0.6rem 0.85rem', borderRadius: '6px', transition: 'all 0.2s', ...getOptionStyle('B') }}>
+                              <strong>B:</strong> {item.optionb}
+                            </div>
+                            <div style={{ padding: '0.6rem 0.85rem', borderRadius: '6px', transition: 'all 0.2s', ...getOptionStyle('C') }}>
+                              <strong>C:</strong> {item.optionc}
+                            </div>
+                            <div style={{ padding: '0.6rem 0.85rem', borderRadius: '6px', transition: 'all 0.2s', ...getOptionStyle('D') }}>
+                              <strong>D:</strong> {item.optiond}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                  <button type="button" className="btn-primary" style={{ width: 'auto', minWidth: '120px' }} onClick={() => setShowBreakdownModal(false)}>
+                    Close Details
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

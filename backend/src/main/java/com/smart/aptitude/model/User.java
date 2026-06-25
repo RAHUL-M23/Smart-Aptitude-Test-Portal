@@ -29,4 +29,10 @@ public class User {
     
     @Column(nullable = false)
     private String role; // e.g. "ROLE_STUDENT" or "ROLE_ADMIN"
+
+    @Column(name = "roll_number", nullable = true, unique = true)
+    private String rollNumber;
+
+    @Column(name = "department", nullable = true)
+    private String department;
 }

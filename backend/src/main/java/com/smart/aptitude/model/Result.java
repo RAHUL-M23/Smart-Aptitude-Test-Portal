@@ -37,4 +37,7 @@ public class Result {
     @ManyToOne
     @JoinColumn(name = "test_id", nullable = false)
     private Test test;
+
+    @Column(name = "selected_answers", columnDefinition = "TEXT")
+    private String selectedAnswers;
 }

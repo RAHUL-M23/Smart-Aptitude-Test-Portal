@@ -54,18 +54,26 @@ public class AuthController {
         responseUser.setName(user.getName());
         responseUser.setEmail(user.getEmail());
         responseUser.setRole(user.getRole());
+        responseUser.setRollNumber(user.getRollNumber());
+        responseUser.setDepartment(user.getDepartment());
 
         return ResponseEntity.ok(responseUser);
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User user) {
-        if (user.getEmail() == null || user.getPassword() == null || user.getName() == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Name, email and password are required"));
+        if (user.getEmail() == null || user.getPassword() == null || user.getName() == null ||
+            user.getRollNumber() == null || user.getRollNumber().isBlank() ||
+            user.getDepartment() == null || user.getDepartment().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Name, email, password, roll number and department are required"));
         }
 
         if (userRepository.existsByEmail(user.getEmail())) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email already in use"));
+        }
+
+        if (userRepository.existsByRollNumber(user.getRollNumber())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Roll Number already in use"));
         }
 
         // Set encoded password and default role
@@ -80,7 +88,53 @@ public class AuthController {
         responseUser.setName(savedUser.getName());
         responseUser.setEmail(savedUser.getEmail());
         responseUser.setRole(savedUser.getRole());
+        responseUser.setRollNumber(savedUser.getRollNumber());
+        responseUser.setDepartment(savedUser.getDepartment());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(responseUser);
+    }
+
+    @PutMapping("/profile/update")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String name = payload.get("name");
+        String rollNumber = payload.get("rollNumber");
+        String department = payload.get("department");
+
+        if (email == null || name == null || rollNumber == null || department == null ||
+            name.isBlank() || rollNumber.isBlank() || department.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Name, roll number and department are required"));
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "User not found"));
+        }
+
+        User user = userOpt.get();
+        
+        // Enforce uniqueness of Roll Number (if changed)
+        if (user.getRollNumber() == null || !user.getRollNumber().equals(rollNumber)) {
+            if (userRepository.existsByRollNumber(rollNumber)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Roll Number already in use by another user"));
+            }
+        }
+
+        user.setName(name);
+        user.setRollNumber(rollNumber);
+        user.setDepartment(department);
+
+        User updatedUser = userRepository.save(user);
+
+        // Hide password in response
+        User responseUser = new User();
+        responseUser.setId(updatedUser.getId());
+        responseUser.setName(updatedUser.getName());
+        responseUser.setEmail(updatedUser.getEmail());
+        responseUser.setRole(updatedUser.getRole());
+        responseUser.setRollNumber(updatedUser.getRollNumber());
+        responseUser.setDepartment(updatedUser.getDepartment());
+
+        return ResponseEntity.ok(responseUser);
     }
 }

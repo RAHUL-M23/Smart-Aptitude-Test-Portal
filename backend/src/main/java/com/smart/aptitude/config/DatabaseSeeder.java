@@ -36,9 +36,9 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         // Seed default users
-        seedUser("admin7@gmail.com", "System Admin", "admin@77", "ROLE_ADMIN");
-        seedUser("student@example.com", "Alex Student", "student123", "ROLE_STUDENT");
-        seedUser("rahul@gmail.com", "rahul m", "rahul123", "ROLE_STUDENT");
+        seedUser("admin7@gmail.com", "System Admin", "admin@77", "ROLE_ADMIN", "ADMIN007", "Administration");
+        seedUser("student@example.com", "Alex Student", "student123", "ROLE_STUDENT", "ROLL1001", "Computer Science");
+        seedUser("rahul@gmail.com", "rahul m", "rahul123", "ROLE_STUDENT", "ROLL1002", "Information Technology");
 
         // Seed 3 distinct tests (Requirement 1 & 2)
         Test testAptitude = seedTest(1L, "Quantitative Aptitude", "Aptitude", 20, 20);
@@ -380,13 +380,15 @@ public class DatabaseSeeder implements CommandLineRunner {
 
 
 
-    private void seedUser(String email, String name, String rawPassword, String role) {
+    private void seedUser(String email, String name, String rawPassword, String role, String rollNumber, String department) {
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             user.setPassword(passwordEncoder.encode(rawPassword));
             user.setName(name);
             user.setRole(role);
+            user.setRollNumber(rollNumber);
+            user.setDepartment(department);
             userRepository.save(user);
             System.out.println("User updated: " + email + " with role: " + role + " (Password: " + rawPassword + ")");
         } else {
@@ -395,6 +397,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             user.setName(name);
             user.setPassword(passwordEncoder.encode(rawPassword));
             user.setRole(role);
+            user.setRollNumber(rollNumber);
+            user.setDepartment(department);
             userRepository.save(user);
             System.out.println("User created: " + email + " with role: " + role + " (Password: " + rawPassword + ")");
         }

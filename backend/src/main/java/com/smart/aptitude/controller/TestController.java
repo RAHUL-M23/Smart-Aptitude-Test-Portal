@@ -140,6 +140,14 @@ public class TestController {
 
         double percentage = totalQuestions > 0 ? ((double) correctAnswers / totalQuestions) * 100.0 : 0.0;
 
+        String selectedAnswersJson = "";
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            selectedAnswersJson = mapper.writeValueAsString(submission.getAnswers());
+        } catch (Exception e) {
+            System.err.println("Error serializing selected answers: " + e.getMessage());
+        }
+
         // Save result
         Result result = new Result();
         result.setUser(user);
@@ -148,6 +156,7 @@ public class TestController {
         result.setPercentage(percentage);
         result.setSubmittedAt(LocalDateTime.now());
         result.setTimeTaken(submission.getTimeTaken());
+        result.setSelectedAnswers(selectedAnswersJson);
 
         Result savedResult = resultRepository.save(result);
 
