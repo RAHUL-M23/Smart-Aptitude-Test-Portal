@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function AdminDashboard({ user }) {
+export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('marks'); // 'marks' or 'questions'
   const [results, setResults] = useState([]);
   const [loadingResults, setLoadingResults] = useState(true);
@@ -39,17 +39,6 @@ export default function AdminDashboard({ user }) {
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  useEffect(() => {
-    fetchResults();
-    fetchTests();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'questions' && selectedQuestionsTestId !== null) {
-      fetchQuestions(selectedQuestionsTestId);
-    }
-  }, [activeTab, selectedQuestionsTestId]);
-
   const fetchResults = async () => {
     try {
       setLoadingResults(true);
@@ -57,7 +46,7 @@ export default function AdminDashboard({ user }) {
       if (!response.ok) throw new Error('Failed to load student results');
       const data = await response.json();
       setResults(data);
-    } catch (err) {
+    } catch {
       setResultsError('Could not connect to backend to fetch student marks.');
     } finally {
       setLoadingResults(false);
@@ -107,6 +96,18 @@ export default function AdminDashboard({ user }) {
       setLoadingQuestions(false);
     }
   };
+
+  useEffect(() => {
+    fetchResults();
+    fetchTests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'questions' && selectedQuestionsTestId !== null) {
+      fetchQuestions(selectedQuestionsTestId);
+    }
+  }, [activeTab, selectedQuestionsTestId]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';

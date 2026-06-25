@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function TestInterface({ testId, user, onReturnToDashboard }) {
   const [test, setTest] = useState(null);
@@ -13,76 +13,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
 
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    fetchTestDetails();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [testId]);
-
-  const fetchTestDetails = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/${testId}?userId=${user.id}`);
-      if (response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'You have already completed this test section and cannot retake it.');
-      }
-      if (!response.ok) throw new Error('Failed to load test details');
-      const data = await response.json();
-      setTest(data.test);
-      setQuestions(data.questions || []);
-      setTimeLeft((data.test.duration || 10) * 60); // convert minutes to seconds
-      
-      // Start Countdown Timer
-      startTimer();
-    } catch (err) {
-      setError(err.message || 'Failed to fetch test details. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const startTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          handleAutoSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleSelectOption = (questionId, optionKey) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [questionId]: optionKey,
-    }));
-  };
-
-  const handleAutoSubmit = () => {
-    console.log('Time is up! Auto submitting...');
-    submitAnswers(true);
-  };
-
-  const handleSubmitClick = () => {
-    const answeredCount = Object.keys(selectedAnswers).length;
-    const unansweredCount = questions.length - answeredCount;
-    
-    let confirmMsg = 'Are you sure you want to submit your test?';
-    if (unansweredCount > 0) {
-      confirmMsg = `You have ${unansweredCount} unanswered questions. Are you sure you want to submit and end the test?`;
-    }
-    
-    if (window.confirm(confirmMsg)) {
-      submitAnswers(false);
-    }
-  };
-
-  const submitAnswers = async (isAutoSubmit = false) => {
+  async function submitAnswers() {
     if (timerRef.current) clearInterval(timerRef.current);
     setSubmitting(true);
     setError('');
@@ -123,20 +54,90 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
-  const formatTime = (seconds) => {
+  function handleAutoSubmit() {
+    console.log('Time is up! Auto submitting...');
+    submitAnswers();
+  }
+
+  function startTimer() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          handleAutoSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function fetchTestDetails() {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/${testId}?userId=${user.id}`);
+      if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'You have already completed this test section and cannot retake it.');
+      }
+      if (!response.ok) throw new Error('Failed to load test details');
+      const data = await response.json();
+      setTest(data.test);
+      setQuestions(data.questions || []);
+      setTimeLeft((data.test.duration || 10) * 60); // convert minutes to seconds
+      
+      // Start Countdown Timer
+      startTimer();
+    } catch (err) {
+      setError(err.message || 'Failed to fetch test details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTestDetails();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testId]);
+
+  function handleSelectOption(questionId, optionKey) {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionId]: optionKey,
+    }));
+  }
+
+  function handleSubmitClick() {
+    const answeredCount = Object.keys(selectedAnswers).length;
+    const unansweredCount = questions.length - answeredCount;
+    
+    let confirmMsg = 'Are you sure you want to submit your test?';
+    if (unansweredCount > 0) {
+      confirmMsg = `You have ${unansweredCount} unanswered questions. Are you sure you want to submit and end the test?`;
+    }
+    
+    if (window.confirm(confirmMsg)) {
+      submitAnswers();
+    }
+  }
+
+  function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  }
 
-  const formatTimeSpent = (seconds) => {
+  function formatTimeSpent(seconds) {
     if (seconds === undefined || seconds === null) return 'N/A';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
-  };
+  }
 
   if (loading) {
     return (

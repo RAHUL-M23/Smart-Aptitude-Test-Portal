@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) {
   const [tests, setTests] = useState([]);
@@ -7,18 +7,13 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
   const [loadingAttempts, setLoadingAttempts] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchTests();
-    fetchAttempts();
-  }, [user.id]);
-
   const fetchTests = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests`);
       if (!response.ok) throw new Error('Failed to load tests');
       const data = await response.json();
       setTests(data);
-    } catch (err) {
+    } catch {
       setError('Could not connect to backend to fetch tests.');
     } finally {
       setLoadingTests(false);
@@ -37,6 +32,12 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
       setLoadingAttempts(false);
     }
   };
+
+  useEffect(() => {
+    fetchTests();
+    fetchAttempts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
