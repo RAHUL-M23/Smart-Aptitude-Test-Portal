@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
 
 @RestController
 @RequestMapping("/api/results")
@@ -64,35 +66,40 @@ public class ResultController {
 
         // Load detailed questions and map them to the student's selected answers
         String selectedAnswersJson = result.getSelectedAnswers();
-        Map<Long, String> answersMap = new HashMap<>();
+        Map<String, String> answersMap = new HashMap<>();
         if (selectedAnswersJson != null && !selectedAnswersJson.isBlank()) {
             try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                answersMap = mapper.readValue(selectedAnswersJson, new com.fasterxml.jackson.core.type.TypeReference<Map<Long, String>>() {});
+                ObjectMapper mapper = new ObjectMapper();
+                answersMap = mapper.readValue(selectedAnswersJson, new TypeReference<Map<String, String>>() {});
             } catch (Exception e) {
                 System.err.println("Error parsing selected answers JSON: " + e.getMessage());
             }
         }
 
         List<Map<String, Object>> questionBreakdown = new ArrayList<>();
-        // Note: To preserve order, let's sort question IDs if we want, or just loop through the keys
-        for (Map.Entry<Long, String> entry : answersMap.entrySet()) {
-            Long questionId = entry.getKey();
-            String selectedAnswer = entry.getValue();
+        for (Map.Entry<String, String> entry : answersMap.entrySet()) {
+            try {
+                Long questionId = Long.parseLong(entry.getKey());
+                String selectedAnswer = entry.getValue();
 
-            Optional<Question> questionOpt = questionRepository.findById(questionId);
-            if (questionOpt.isPresent()) {
-                Question q = questionOpt.get();
-                Map<String, Object> qMap = new HashMap<>();
-                qMap.put("questionId", q.getQuestionId());
-                qMap.put("questionText", q.getQuestionText());
-                qMap.put("optiona", q.getOptiona());
-                qMap.put("optionb", q.getOptionb());
-                qMap.put("optionc", q.getOptionc());
-                qMap.put("optiond", q.getOptiond());
-                qMap.put("correctAnswer", q.getCorrectAnswer());
-                qMap.put("selectedAnswer", selectedAnswer);
-                questionBreakdown.add(qMap);
+                Optional<Question> questionOpt = questionRepository.findById(questionId);
+                if (questionOpt.isPresent()) {
+                    Question q = questionOpt.get();
+                    Map<String, Object> qMap = new HashMap<>();
+                    qMap.put("questionId", q.getQuestionId());
+                    qMap.put("questionText", q.getQuestionText());
+                    qMap.put("optiona", q.getOptiona());
+                    qMap.put("optionb", q.getOptionb());
+                    qMap.put("optionc", q.getOptionc());
+                    qMap.put("optiond", q.getOptiond());
+                    qMap.put("correctAnswer", q.getCorrectAnswer());
+                    qMap.put("selectedAnswer", selectedAnswer);
+                    questionBreakdown.add(qMap);
+                } else {
+                    System.err.println("Question not found in DB for ID: " + questionId);
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid question ID format: " + entry.getKey());
             }
         }
 

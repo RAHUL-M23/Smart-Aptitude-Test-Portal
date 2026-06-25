@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/tests")
@@ -142,7 +143,7 @@ public class TestController {
 
         String selectedAnswersJson = "";
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            ObjectMapper mapper = new ObjectMapper();
             selectedAnswersJson = mapper.writeValueAsString(submission.getAnswers());
         } catch (Exception e) {
             System.err.println("Error serializing selected answers: " + e.getMessage());

@@ -46,7 +46,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         Test testReasoning = seedTest(3L, "Logical Reasoning", "Reasoning", 20, 20);
 
         // Check if database contains old questions or needs re-seeding
-        boolean needsReseed = true;
+        boolean needsReseed = questionRepository.count() == 0;
 
 
         // Seed 505 questions partitioned across the 3 tests
