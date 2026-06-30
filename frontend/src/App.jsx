@@ -12,8 +12,8 @@ function App() {
   const [activeTestId, setActiveTestId] = useState(null);
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   
-  // Profile Settings Modal State
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  // Student Dashboard active tab state
+  const [studentTab, setStudentTab] = useState('dashboard'); // 'dashboard' or 'settings'
   const [profileName, setProfileName] = useState('');
   const [profileRollNumber, setProfileRollNumber] = useState('');
   const [profileDepartment, setProfileDepartment] = useState('');
@@ -53,7 +53,7 @@ function App() {
       setProfileRollNumber(user.rollNumber || '');
       setProfileDepartment(user.department || '');
     }
-  }, [user, showProfileModal]);
+  }, [user, studentTab]);
 
   const handleLoginSuccess = (loggedInUser) => {
     setUser(loggedInUser);
@@ -117,7 +117,7 @@ function App() {
       localStorage.setItem('user', JSON.stringify(data));
       setProfileSuccess('Profile updated successfully!');
       setTimeout(() => {
-        setShowProfileModal(false);
+        setStudentTab('dashboard');
         setProfileSuccess('');
       }, 1000);
     } catch (err) {
@@ -143,7 +143,7 @@ function App() {
           {!isAdmin && (
             <button 
               className="btn-theme-toggle" 
-              onClick={() => setShowProfileModal(true)}
+              onClick={() => setStudentTab(studentTab === 'settings' ? 'dashboard' : 'settings')}
               title="Profile Settings"
               aria-label="Profile Settings"
               style={{ marginRight: '0.25rem' }}
@@ -151,7 +151,6 @@ function App() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             </button>
           )}
-
           <button 
             className="btn-theme-toggle" 
             onClick={toggleTheme}
@@ -236,7 +235,20 @@ function App() {
       <StudentDashboard
         user={user}
         onSelectTest={handleSelectTest}
-        onOpenProfile={() => setShowProfileModal(true)}
+        activeTab={studentTab}
+        setActiveTab={setStudentTab}
+        profileName={profileName}
+        setProfileName={setProfileName}
+        profileRollNumber={profileRollNumber}
+        setProfileRollNumber={setProfileRollNumber}
+        profileDepartment={profileDepartment}
+        setProfileDepartment={setProfileDepartment}
+        profileError={profileError}
+        setProfileError={setProfileError}
+        profileSuccess={profileSuccess}
+        setProfileSuccess={setProfileSuccess}
+        profileSaving={profileSaving}
+        handleSaveProfile={handleSaveProfile}
       />
     );
   };
@@ -246,106 +258,7 @@ function App() {
       {renderNavbar()}
       {renderMainView()}
 
-      {/* Profile Settings Edit Modal */}
-      {showProfileModal && user && (
-        <div className="modal-overlay" style={{ animation: 'fadeIn 0.2s ease-out' }}>
-          <div className="glass-card modal-card" style={{ width: '100%', maxWidth: '500px', position: 'relative' }}>
-            <button 
-              type="button"
-              onClick={() => setShowProfileModal(false)} 
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem' }}
-              disabled={profileSaving}
-            >
-              &times;
-            </button>
-            <h2 className="section-title" style={{ borderLeftColor: 'var(--color-secondary)' }}>Profile Settings</h2>
-            
-            {profileError && (
-              <div className="alert-box alert-error" style={{ marginTop: '1rem' }}>
-                <span>{profileError}</span>
-              </div>
-            )}
-            
-            {profileSuccess && (
-              <div className="alert-box alert-success" style={{ marginTop: '1rem' }}>
-                <span>{profileSuccess}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="profile-email">Email Address (Read-only)</label>
-                <input
-                  id="profile-email"
-                  type="email"
-                  className="form-input"
-                  value={user.email}
-                  disabled
-                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="profile-name">Full Name</label>
-                <input
-                  id="profile-name"
-                  type="text"
-                  className="form-input"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  required
-                  disabled={profileSaving}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="profile-rollNumber">Roll Number</label>
-                <input
-                  id="profile-rollNumber"
-                  type="text"
-                  className="form-input"
-                  value={profileRollNumber}
-                  onChange={(e) => setProfileRollNumber(e.target.value)}
-                  required
-                  disabled={profileSaving}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="profile-department">Department</label>
-                <input
-                  id="profile-department"
-                  type="text"
-                  className="form-input"
-                  value={profileDepartment}
-                  onChange={(e) => setProfileDepartment(e.target.value)}
-                  required
-                  disabled={profileSaving}
-                />
-              </div>
-
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button 
-                  type="button"
-                  className="btn-nav" 
-                  onClick={() => setShowProfileModal(false)}
-                  disabled={profileSaving}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary" 
-                  style={{ width: 'auto', minWidth: '150px' }}
-                  disabled={profileSaving}
-                >
-                  {profileSaving ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Profile Settings Edit Modal removed as settings are rendered inline */}
     </div>
   );
 }

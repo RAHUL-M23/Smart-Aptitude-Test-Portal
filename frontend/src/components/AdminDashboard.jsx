@@ -39,6 +39,118 @@ export default function AdminDashboard() {
   const [loadingBreakdown, setLoadingBreakdown] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
+  // Registered Users State
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState('');
+
+  // Create Test Form State
+  const [newTestName, setNewTestName] = useState('');
+  const [newTestCategory, setNewTestCategory] = useState('');
+  const [newTestDuration, setNewTestDuration] = useState('');
+  const [newTestTotalMarks, setNewTestTotalMarks] = useState('');
+  const [newTestExpiryDate, setNewTestExpiryDate] = useState('');
+  const [newTestExpiryTime, setNewTestExpiryTime] = useState('');
+  const [createTestError, setCreateTestError] = useState('');
+  const [createTestSuccess, setCreateTestSuccess] = useState('');
+  const [createTestSubmitting, setCreateTestSubmitting] = useState(false);
+
+  const fetchUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      setUsersError('');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/admin/users`, {
+        headers: {
+          'X-User-Role': 'ROLE_ADMIN'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to load registered users');
+      const data = await response.json();
+      setUsers(data);
+    } catch (err) {
+      setUsersError(err.message || 'Error fetching users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'credentials') {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
+  const handleExportCsv = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results/admin/export`, {
+        headers: {
+          'X-User-Role': 'ROLE_ADMIN'
+        }
+      });
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'student_reports.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Error exporting CSV');
+    }
+  };
+
+  const handleCreateTest = async (e) => {
+    e.preventDefault();
+    setCreateTestSubmitting(true);
+    setCreateTestError('');
+    setCreateTestSuccess('');
+
+    let expiryTimestamp = null;
+    if (newTestExpiryDate && newTestExpiryTime) {
+      expiryTimestamp = `${newTestExpiryDate}T${newTestExpiryTime}:00`;
+    }
+
+    const payload = {
+      testName: newTestName,
+      category: newTestCategory,
+      duration: Number(newTestDuration),
+      totalMarks: Number(newTestTotalMarks),
+      expiryTimestamp
+    };
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Role': 'ROLE_ADMIN'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create test');
+      }
+
+      setCreateTestSuccess('Test created successfully!');
+      setNewTestName('');
+      setNewTestCategory('');
+      setNewTestDuration('');
+      setNewTestTotalMarks('');
+      setNewTestExpiryDate('');
+      setNewTestExpiryTime('');
+      fetchTests();
+    } catch (err) {
+      setCreateTestError(err.message);
+    } finally {
+      setCreateTestSubmitting(false);
+    }
+  };
+
   const fetchResults = async () => {
     try {
       setLoadingResults(true);
@@ -363,6 +475,18 @@ export default function AdminDashboard() {
         >
           View Questions & Answers ({questions.length > 0 ? questions.length : '505'})
         </button>
+        <button 
+          className={`admin-tab-btn ${activeTab === 'tests' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tests')}
+        >
+          Create & Manage Tests
+        </button>
+        <button 
+          className={`admin-tab-btn ${activeTab === 'credentials' ? 'active' : ''}`}
+          onClick={() => setActiveTab('credentials')}
+        >
+          User Credentials
+        </button>
       </div>
 
       {/* Main Content Area */}
@@ -381,7 +505,7 @@ export default function AdminDashboard() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Filter by Assessment:</span>
               <select
                 className="form-input"
@@ -394,6 +518,15 @@ export default function AdminDashboard() {
                 ))}
               </select>
             </div>
+
+            <button
+              onClick={handleExportCsv}
+              className="btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: 'auto', padding: '0.5rem 1.25rem' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Download Report (Excel)
+            </button>
           </div>
 
           {loadingResults ? (
@@ -481,7 +614,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'questions' ? (
         /* Questions Viewer Tab for Admin */
         <div className="glass-card" style={{ padding: '2rem' }}>
           <div className="controls-row">
@@ -601,6 +734,203 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'tests' ? (
+        /* Create & Manage Tests Tab */
+        <div className="glass-card" style={{ padding: '2rem' }}>
+          <h2 className="section-title" style={{ borderLeftColor: 'var(--color-primary)' }}>Create New Assessment</h2>
+          
+          {createTestError && (
+            <div className="alert-box alert-error" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+              <span>{createTestError}</span>
+            </div>
+          )}
+          
+          {createTestSuccess && (
+            <div className="alert-box alert-success" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+              <span>{createTestSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleCreateTest} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem', maxWidth: '600px' }}>
+            <div className="form-group">
+              <label className="form-label">Test Name</label>
+              <input
+                type="text"
+                className="form-input"
+                required
+                value={newTestName}
+                onChange={(e) => setNewTestName(e.target.value)}
+                placeholder="e.g. Verbal Ability Advanced"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              <div className="form-group">
+                <label className="form-label">Category</label>
+                <select
+                  className="form-input"
+                  required
+                  value={newTestCategory}
+                  onChange={(e) => setNewTestCategory(e.target.value)}
+                >
+                  <option value="">Select Category...</option>
+                  <option value="Aptitude">Aptitude (Quantitative)</option>
+                  <option value="Verbal">Verbal (English)</option>
+                  <option value="Reasoning">Reasoning (Logical)</option>
+                  <option value="General">General / Other</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Total Questions/Marks</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  required
+                  min="1"
+                  max="100"
+                  value={newTestTotalMarks}
+                  onChange={(e) => setNewTestTotalMarks(e.target.value)}
+                  placeholder="e.g. 20"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              <div className="form-group">
+                <label className="form-label">Duration (Minutes)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  required
+                  min="1"
+                  value={newTestDuration}
+                  onChange={(e) => setNewTestDuration(e.target.value)}
+                  placeholder="e.g. 30"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                <label className="form-label">Expiry Schedule</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="date"
+                    className="form-input"
+                    required
+                    value={newTestExpiryDate}
+                    onChange={(e) => setNewTestExpiryDate(e.target.value)}
+                  />
+                  <input
+                    type="time"
+                    className="form-input"
+                    required
+                    value={newTestExpiryTime}
+                    onChange={(e) => setNewTestExpiryTime(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ width: 'auto', minWidth: '180px' }}
+                disabled={createTestSubmitting}
+              >
+                {createTestSubmitting ? 'Creating...' : 'Create Test'}
+              </button>
+            </div>
+          </form>
+
+          {/* List of existing tests with their expiry dates */}
+          <div style={{ marginTop: '3rem' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--text-main)' }}>Existing Assessments</h3>
+            <div className="table-responsive">
+              <table className="marks-table">
+                <thead>
+                  <tr>
+                    <th>Test ID</th>
+                    <th>Test Name</th>
+                    <th>Category</th>
+                    <th>Duration</th>
+                    <th>Marks</th>
+                    <th>Expiry Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tests.map((t) => (
+                    <tr key={t.testId}>
+                      <td>{t.testId}</td>
+                      <td className="text-highlight">{t.testName}</td>
+                      <td>{t.category}</td>
+                      <td>{t.duration} mins</td>
+                      <td>{t.totalMarks}</td>
+                      <td style={{ fontSize: '0.85rem' }}>
+                        {t.expiryTimestamp ? formatDate(t.expiryTimestamp) : 'No expiry set'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Registered User Credentials Tab */
+        <div className="glass-card" style={{ padding: '2rem' }}>
+          <h2 className="section-title" style={{ borderLeftColor: 'var(--color-secondary)' }}>Registered User Credentials</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+            Secure administrative view containing hashes of all registered accounts.
+          </p>
+
+          {usersError && (
+            <div className="alert-box alert-error" style={{ marginBottom: '1.5rem' }}>
+              <span>{usersError}</span>
+            </div>
+          )}
+
+          {loadingUsers ? (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>
+              Loading credential registry...
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="marks-table">
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email ID</th>
+                    <th>Role</th>
+                    <th>Roll Number</th>
+                    <th>Department</th>
+                    <th>Password (BCrypt Hash)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.id}</td>
+                      <td className="text-highlight">{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <span className={`user-badge ${u.role === 'ROLE_ADMIN' ? 'admin' : ''}`} style={{ margin: 0 }}>
+                          {u.role === 'ROLE_ADMIN' ? 'Admin' : 'Student'}
+                        </span>
+                      </td>
+                      <td>{u.rollNumber || 'N/A'}</td>
+                      <td>{u.department || 'N/A'}</td>
+                      <td style={{ fontSize: '0.75rem', fontFamily: 'monospace', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={u.password}>
+                        {u.password || 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

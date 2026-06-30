@@ -47,13 +47,33 @@ public class TestController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
         }
 
+        Test test = testOpt.get();
+        if (test.getExpiryTimestamp() != null && LocalDateTime.now().isAfter(test.getExpiryTimestamp())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "This test has expired and is no longer available."));
+        }
+
         List<Question> questions = questionRepository.findByTestId(id);
-        
-        // Suffle the questions pool randomly (shuffling constraint)
+        if (questions.isEmpty()) {
+            Long templateTestId = 1L;
+            String category = test.getCategory();
+            if (category != null) {
+                if (category.equalsIgnoreCase("Verbal")) {
+                    templateTestId = 2L;
+                } else if (category.equalsIgnoreCase("Reasoning")) {
+                    templateTestId = 3L;
+                } else if (category.equalsIgnoreCase("Aptitude") || category.equalsIgnoreCase("Quantitative")) {
+                    templateTestId = 1L;
+                }
+            }
+            questions = questionRepository.findByTestId(templateTestId);
+        }
+
+        // Shuffle the questions pool randomly (shuffling constraint)
         Collections.shuffle(questions);
 
-        // Limit the assessment to a subset of 10 questions out of the 500+ questions pool
-        int limit = testOpt.get().getTotalMarks() != null ? testOpt.get().getTotalMarks() : 10;
+        // Limit the assessment to the configured number of questions (Requirement 2)
+        int limit = test.getTotalMarks() != null ? test.getTotalMarks() : 10;
         List<Question> selectedQuestions = questions.stream()
                 .limit(limit)
                 .collect(Collectors.toList());
@@ -67,13 +87,13 @@ public class TestController {
             sq.setOptionb(q.getOptionb());
             sq.setOptionc(q.getOptionc());
             sq.setOptiond(q.getOptiond());
-            sq.setTestId(q.getTestId());
+            sq.setTestId(id); // Associate with the requested test ID
             sq.setCorrectAnswer(null); // Keep correctAnswer hidden for students
             return sq;
         }).collect(Collectors.toList());
 
         Map<String, Object> response = new HashMap<>();
-        response.put("test", testOpt.get());
+        response.put("test", test);
         response.put("questions", sanitizedQuestions);
 
         return ResponseEntity.ok(response);
@@ -95,13 +115,47 @@ public class TestController {
         if (testOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
         }
+        Test test = testOpt.get();
 
         List<Question> questions = questionRepository.findByTestId(id);
-        
-        // Return full details including correct answers for Admin view
+        if (questions.isEmpty()) {
+            Long templateTestId = 1L;
+            String category = test.getCategory();
+            if (category != null) {
+                if (category.equalsIgnoreCase("Verbal")) {
+                    templateTestId = 2L;
+                } else if (category.equalsIgnoreCase("Reasoning")) {
+                    templateTestId = 3L;
+                } else if (category.equalsIgnoreCase("Aptitude") || category.equalsIgnoreCase("Quantitative")) {
+                    templateTestId = 1L;
+                }
+            }
+            questions = questionRepository.findByTestId(templateTestId);
+        }
+
+        // Limit the assessment to the configured number of questions
+        int limit = test.getTotalMarks() != null ? test.getTotalMarks() : 10;
+        List<Question> selectedQuestions = questions.stream()
+                .limit(limit)
+                .collect(Collectors.toList());
+
+        // Ensure the returned questions show current test ID for the admin view
+        List<Question> modifiedQuestions = selectedQuestions.stream().map(q -> {
+            Question mq = new Question();
+            mq.setQuestionId(q.getQuestionId());
+            mq.setQuestionText(q.getQuestionText());
+            mq.setOptiona(q.getOptiona());
+            mq.setOptionb(q.getOptionb());
+            mq.setOptionc(q.getOptionc());
+            mq.setOptiond(q.getOptiond());
+            mq.setCorrectAnswer(q.getCorrectAnswer());
+            mq.setTestId(id);
+            return mq;
+        }).collect(Collectors.toList());
+
         Map<String, Object> response = new HashMap<>();
-        response.put("test", testOpt.get());
-        response.put("questions", questions);
+        response.put("test", test);
+        response.put("questions", modifiedQuestions);
 
         return ResponseEntity.ok(response);
     }
@@ -170,6 +224,25 @@ public class TestController {
         response.put("timeTaken", savedResult.getTimeTaken());
 
         return ResponseEntity.ok(response);
+    }    @PostMapping("/admin")
+    public ResponseEntity<?> createTest(
+            @RequestBody Test test,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        
+        if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied. Admin credentials required."));
+        }
+
+        if (test.getTestName() == null || test.getTestName().isBlank() ||
+            test.getCategory() == null || test.getCategory().isBlank() ||
+            test.getDuration() == null || test.getDuration() <= 0 ||
+            test.getTotalMarks() == null || test.getTotalMarks() <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "All fields (name, category, duration, total marks) are required."));
+        }
+
+        Test saved = testRepository.save(test);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PostMapping("/admin/questions")

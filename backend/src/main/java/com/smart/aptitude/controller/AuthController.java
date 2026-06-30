@@ -137,4 +137,30 @@ public class AuthController {
 
         return ResponseEntity.ok(responseUser);
     }
+
+    @GetMapping("/admin/users")
+    public ResponseEntity<?> getAdminUsers(@RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied. Admin credentials required."));
+        }
+        
+        java.util.List<User> users = userRepository.findAll();
+        java.util.List<java.util.Map<String, Object>> responseList = new java.util.ArrayList<>();
+        
+        for (User u : users) {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", u.getId());
+            map.put("name", u.getName());
+            map.put("email", u.getEmail());
+            map.put("role", u.getRole());
+            map.put("rollNumber", u.getRollNumber());
+            map.put("department", u.getDepartment());
+            map.put("password", u.getPassword());
+            responseList.add(map);
+        }
+        
+        return ResponseEntity.ok(responseList);
+    }
 }
+

@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
 
-export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) {
+export default function StudentDashboard({ 
+  user, 
+  onSelectTest, 
+  activeTab, 
+  setActiveTab,
+  profileName,
+  setProfileName,
+  profileRollNumber,
+  setProfileRollNumber,
+  profileDepartment,
+  setProfileDepartment,
+  profileError,
+  profileSuccess,
+  profileSaving,
+  handleSaveProfile
+}) {
   const [tests, setTests] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [loadingTests, setLoadingTests] = useState(true);
@@ -101,22 +116,15 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
   return (
     <div className="main-content">
       {/* Welcoming Header */}
-      <div className="welcome-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1>Welcome back, {user.name}!</h1>
-          <p>This is your main dashboard hub. Check your statistics, take new tests, or manage your profile.</p>
-        </div>
-        <div>
-          <button 
-            className="btn-nav" 
-            style={{ borderColor: 'var(--color-secondary)', color: 'var(--color-secondary)' }}
-            onClick={onOpenProfile}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            View Profile Settings
-          </button>
-        </div>
+      <div className="welcome-section">
+        <h1>Welcome back, {user.name}!</h1>
+        <p>This is your main dashboard hub. Check your statistics, take new tests, or manage your profile.</p>
       </div>
+
+      {/* Tab bar removed to simplify view. Profile is toggled via settings gear icon button in navigation bar. */}
+
+      {activeTab === 'dashboard' ? (
+        <>
 
       {error && (
         <div className="alert-box alert-error">
@@ -174,18 +182,26 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
           <div className="cards-list">
             {tests.map((test) => {
               const isCompleted = attempts.some(a => a.test && a.test.testId === test.testId);
+              const isExpired = test.expiryTimestamp && new Date(test.expiryTimestamp) < new Date();
               return (
-                <div key={test.testId} className={`glass-card test-card category-${(test.category || 'general').toLowerCase()} ${isCompleted ? 'completed-card' : ''}`}>
+                <div key={test.testId} className={`glass-card test-card category-${(test.category || 'general').toLowerCase()} ${isCompleted ? 'completed-card' : ''} ${isExpired ? 'expired-card' : ''}`}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, width: '100%' }}>
                     {getTestIcon(test.category)}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div className="test-category" style={{ marginTop: '0.5rem' }}>{test.category || 'General'}</div>
-                      {isCompleted && (
-                        <div className="completed-badge">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '0.2rem'}}><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          Completed
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        {isCompleted && (
+                          <div className="completed-badge">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '0.2rem'}}><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Completed
+                          </div>
+                        )}
+                        {isExpired && (
+                          <div className="completed-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                            Expired
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="test-name" style={{ margin: '0.25rem 0 0.5rem 0' }}>{test.testName}</div>
                     <div className="test-meta">
@@ -201,10 +217,15 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
                   </div>
                   <button 
                     className="btn-start"
-                    style={{ width: '100%', marginTop: '1.25rem' }}
-                    onClick={() => onSelectTest(test.testId)}
+                    style={{ 
+                      width: '100%', 
+                      marginTop: '1.25rem', 
+                      ...(isExpired ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--border-color)', color: 'var(--text-muted)' } : {}) 
+                    }}
+                    onClick={() => !isExpired && onSelectTest(test.testId)}
+                    disabled={isExpired}
                   >
-                    {isCompleted ? 'Retake Test' : 'Start Test'}
+                    {isExpired ? 'Expired' : isCompleted ? 'Retake Test' : 'Start Test'}
                   </button>
                 </div>
               );
@@ -250,7 +271,101 @@ export default function StudentDashboard({ user, onSelectTest, onOpenProfile }) 
           </div>
         )}
       </div>
+      </>
+      ) : (
+        /* Immediate flat settings view inside the dashboard tab */
+        <div className="glass-card" style={{ padding: '2.5rem', maxWidth: '600px', margin: '0 auto' }}>
+          <h2 className="section-title" style={{ borderLeftColor: 'var(--color-secondary)', marginBottom: '1.5rem' }}>Profile Details</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+            Update your personal details. Keep this information accurate as it is used for grading and test certification.
+          </p>
 
+          {profileError && (
+            <div className="alert-box alert-error" style={{ marginBottom: '1.5rem' }}>
+              <span>{profileError}</span>
+            </div>
+          )}
+          
+          {profileSuccess && (
+            <div className="alert-box alert-success" style={{ marginBottom: '1.5rem' }}>
+              <span>{profileSuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="profile-email">Email Address (Read-only)</label>
+              <input
+                id="profile-email"
+                type="email"
+                className="form-input"
+                value={user.email}
+                disabled
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="profile-name">Full Name</label>
+              <input
+                id="profile-name"
+                type="text"
+                className="form-input"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                required
+                disabled={profileSaving}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="profile-rollNumber">Roll Number</label>
+              <input
+                id="profile-rollNumber"
+                type="text"
+                className="form-input"
+                value={profileRollNumber}
+                onChange={(e) => setProfileRollNumber(e.target.value)}
+                required
+                disabled={profileSaving}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="profile-department">Department</label>
+              <input
+                id="profile-department"
+                type="text"
+                className="form-input"
+                value={profileDepartment}
+                onChange={(e) => setProfileDepartment(e.target.value)}
+                required
+                disabled={profileSaving}
+              />
+            </div>
+
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="btn-nav" 
+                onClick={() => setActiveTab('dashboard')}
+                disabled={profileSaving}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                style={{ width: 'auto', minWidth: '180px' }}
+                disabled={profileSaving}
+              >
+                {profileSaving ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
+

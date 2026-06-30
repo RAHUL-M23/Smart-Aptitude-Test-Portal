@@ -112,4 +112,54 @@ public class ResultController {
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/admin/export")
+    public ResponseEntity<?> exportResultsToCsv(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        
+        if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied. Admin credentials required."));
+        }
+
+        List<Result> results = resultRepository.findAllByOrderBySubmittedAtDesc();
+        
+        StringBuilder csvContent = new StringBuilder();
+        // CSV Header
+        csvContent.append("Student Name,Department,Email ID,Test Name,Marks\n");
+
+        for (Result r : results) {
+            String name = r.getUser() != null ? r.getUser().getName() : "N/A";
+            String dept = r.getUser() != null ? r.getUser().getDepartment() : "N/A";
+            String email = r.getUser() != null ? r.getUser().getEmail() : "N/A";
+            String testName = r.getTest() != null ? r.getTest().getTestName() : "N/A";
+            int marks = r.getScore() != null ? r.getScore() : 0;
+
+            csvContent.append(escapeCsvField(name)).append(",")
+                      .append(escapeCsvField(dept)).append(",")
+                      .append(escapeCsvField(email)).append(",")
+                      .append(escapeCsvField(testName)).append(",")
+                      .append(marks).append("\n");
+        }
+
+        byte[] csvBytes = csvContent.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=student_reports.csv");
+        headers.setContentType(org.springframework.http.MediaType.parseMediaType("text/csv; charset=UTF-8"));
+
+        return new ResponseEntity<>(csvBytes, headers, HttpStatus.OK);
+    }
+
+    private String escapeCsvField(String field) {
+        if (field == null) {
+            return "";
+        }
+        String value = field.replace("\"", "\"\"");
+        if (value.contains(",") || value.contains("\n") || value.contains("\r") || value.contains("\"")) {
+            return "\"" + value + "\"";
+        }
+        return value;
+    }
 }
+

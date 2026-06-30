@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tests")
@@ -28,4 +29,8 @@ public class Test {
     
     @Column(name = "total_marks")
     private Integer totalMarks;
+
+    @Column(name = "expiry_timestamp")
+    private LocalDateTime expiryTimestamp;
 }
+

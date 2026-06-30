@@ -13,8 +13,57 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
 
   const timerRef = useRef(null);
 
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isFullscreenViolation, setIsFullscreenViolation] = useState(false);
+
+  useEffect(() => {
+    if (!hasStarted || result) return;
+
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      if (!isCurrentlyFullscreen) {
+        setIsFullscreenViolation(true);
+      } else {
+        setIsFullscreenViolation(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, [hasStarted, result]);
+
+  function handleStartTest() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(err => {
+        console.error("Error requesting fullscreen:", err);
+      });
+    }
+    setHasStarted(true);
+    startTimer();
+  }
+
+  const handleBackToDashboard = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(err => console.error(err));
+    }
+    onReturnToDashboard();
+  };
+
   async function submitAnswers() {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(err => console.error(err));
+    }
     setSubmitting(true);
     setError('');
 
@@ -87,9 +136,6 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
       setTest(data.test);
       setQuestions(data.questions || []);
       setTimeLeft((data.test.duration || 10) * 60); // convert minutes to seconds
-      
-      // Start Countdown Timer
-      startTimer();
     } catch (err) {
       setError(err.message || 'Failed to fetch test details. Please try again.');
     } finally {
@@ -153,9 +199,95 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
         <div className="alert-box alert-error">
           <span>{error}</span>
         </div>
-        <button className="btn-primary" style={{ maxWidth: '200px' }} onClick={onReturnToDashboard}>
+        <button className="btn-primary" style={{ maxWidth: '200px' }} onClick={handleBackToDashboard}>
           Return to Dashboard
         </button>
+      </div>
+    );
+  }
+
+  if (isFullscreenViolation && hasStarted && !result) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(20, 10, 10, 0.95)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        color: '#fff',
+        textAlign: 'center',
+        padding: '2rem'
+      }}>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" style={{ marginBottom: '1.5rem', filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.4))' }}>
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Fullscreen Violation Detected!
+        </h1>
+        <p style={{ maxWidth: '600px', fontSize: '1.1rem', color: '#cbd5e1', lineHeight: '1.6', marginBottom: '2rem' }}>
+          This test is conducted in locked environment. You are not allowed to exit fullscreen or switch tabs. Please click the button below to restore fullscreen mode and continue the test.
+        </p>
+        <button
+          className="btn-primary"
+          style={{
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            borderColor: '#ef4444',
+            boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)',
+            padding: '0.75rem 2rem',
+            fontSize: '1.1rem',
+            width: 'auto'
+          }}
+          onClick={() => {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+              elem.requestFullscreen().catch(err => console.error(err));
+            }
+          }}
+        >
+          Re-enter Fullscreen Mode
+        </button>
+      </div>
+    );
+  }
+
+  if (!hasStarted && !result && test) {
+    return (
+      <div className="main-content test-interface-wrapper">
+        <div className="glass-card result-card" style={{ maxWidth: '650px', margin: '2rem auto', textAlign: 'left', padding: '2.5rem' }}>
+          <div className="test-category" style={{ marginBottom: '0.5rem' }}>{test.category}</div>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: '800', marginBottom: '1rem', color: 'var(--text-main)' }}>
+            {test.testName}
+          </h1>
+          
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1.25rem', marginBottom: '2rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.75rem', color: 'var(--text-main)' }}>Important Exam Guidelines</h3>
+            <ul style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+              <li>This test has a strict duration of <strong>{test.duration} minutes</strong>.</li>
+              <li>There are <strong>{questions.length} questions</strong> in total.</li>
+              <li>Once you click "Start Test", the browser will enter **Fullscreen Mode** automatically.</li>
+              <li><strong>Lockdown Warning</strong>: Exiting fullscreen mode during the test is strictly prohibited. If you exit fullscreen, you will be locked out from answering questions until you restore it.</li>
+              <li>Please ensure you have a stable internet connection before beginning.</li>
+            </ul>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <button className="btn-nav" onClick={handleBackToDashboard}>
+              Back to Dashboard
+            </button>
+            <button className="btn-primary" style={{ width: 'auto', minWidth: '150px' }} onClick={handleStartTest}>
+              Start Test
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -222,7 +354,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
           <button 
             className="btn-primary" 
             style={{ maxWidth: '250px', margin: '0 auto' }} 
-            onClick={onReturnToDashboard}
+            onClick={handleBackToDashboard}
           >
             Go back to Dashboard
           </button>
