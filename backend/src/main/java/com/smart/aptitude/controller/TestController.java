@@ -55,18 +55,27 @@ public class TestController {
 
         List<Question> questions = questionRepository.findByTestId(id);
         if (questions.isEmpty() && !test.getTestName().toLowerCase().contains("empty")) {
-            Long templateTestId = 1L;
             String category = test.getCategory();
-            if (category != null) {
-                if (category.equalsIgnoreCase("Verbal")) {
-                    templateTestId = 2L;
-                } else if (category.equalsIgnoreCase("Reasoning")) {
-                    templateTestId = 3L;
-                } else if (category.equalsIgnoreCase("Aptitude") || category.equalsIgnoreCase("Quantitative")) {
-                    templateTestId = 1L;
+            if (category != null && !category.isBlank()) {
+                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCase(category);
+                for (Test t : sameCategoryTests) {
+                    List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
+                    if (!fallbackQs.isEmpty()) {
+                        questions = fallbackQs;
+                        break;
+                    }
                 }
             }
-            questions = questionRepository.findByTestId(templateTestId);
+            if (questions.isEmpty()) {
+                List<Test> allTests = testRepository.findAll();
+                for (Test t : allTests) {
+                    List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
+                    if (!fallbackQs.isEmpty()) {
+                        questions = fallbackQs;
+                        break;
+                    }
+                }
+            }
         }
 
         // Shuffle the questions pool randomly (shuffling constraint)
@@ -119,18 +128,27 @@ public class TestController {
 
         List<Question> questions = questionRepository.findByTestId(id);
         if (questions.isEmpty() && !test.getTestName().toLowerCase().contains("empty")) {
-            Long templateTestId = 1L;
             String category = test.getCategory();
-            if (category != null) {
-                if (category.equalsIgnoreCase("Verbal")) {
-                    templateTestId = 2L;
-                } else if (category.equalsIgnoreCase("Reasoning")) {
-                    templateTestId = 3L;
-                } else if (category.equalsIgnoreCase("Aptitude") || category.equalsIgnoreCase("Quantitative")) {
-                    templateTestId = 1L;
+            if (category != null && !category.isBlank()) {
+                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCase(category);
+                for (Test t : sameCategoryTests) {
+                    List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
+                    if (!fallbackQs.isEmpty()) {
+                        questions = fallbackQs;
+                        break;
+                    }
                 }
             }
-            questions = questionRepository.findByTestId(templateTestId);
+            if (questions.isEmpty()) {
+                List<Test> allTests = testRepository.findAll();
+                for (Test t : allTests) {
+                    List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
+                    if (!fallbackQs.isEmpty()) {
+                        questions = fallbackQs;
+                        break;
+                    }
+                }
+            }
         }
 
         // Limit the assessment to the configured number of questions
