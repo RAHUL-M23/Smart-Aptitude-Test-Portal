@@ -387,7 +387,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
           <h2 style={{color: 'var(--color-secondary)'}}>Submitting and calculating score...</h2>
         </div>
       ) :
-        currentQuestion && (
+        currentQuestion ? (
           <div className="glass-card question-card">
             <div className="question-text">
               {currentQuestion.questionText}
@@ -437,6 +437,21 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
                   Next
                 </button>
               )}
+            </div>
+          </div>
+        ) : (
+          <div className="glass-card question-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+            <div className="question-text" style={{ marginBottom: '2rem', fontSize: '1.25rem' }}>
+              This test section currently has no questions assigned to it. The timer is running for you to complete this session.
+            </div>
+            <div className="test-navigation" style={{ justifyContent: 'center' }}>
+              <button
+                className="btn-submit-test"
+                style={{ width: 'auto', minWidth: '200px' }}
+                onClick={submitAnswers}
+              >
+                Submit and Finish Test
+              </button>
             </div>
           </div>
         )
