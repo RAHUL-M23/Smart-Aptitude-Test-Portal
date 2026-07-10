@@ -325,6 +325,8 @@ public class TestController {
         question.setOptiond(questionDetails.getOptiond());
         question.setCorrectAnswer(questionDetails.getCorrectAnswer());
         question.setTestId(questionDetails.getTestId());
+        question.setCategory(questionDetails.getCategory());
+        question.setSubTopic(questionDetails.getSubTopic());
 
         Question updated = questionRepository.save(question);
         return ResponseEntity.ok(updated);

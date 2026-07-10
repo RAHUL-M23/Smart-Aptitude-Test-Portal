@@ -32,5 +32,8 @@ public class Test {
 
     @Column(name = "expiry_timestamp")
     private LocalDateTime expiryTimestamp;
+
+    @Column(name = "selected_topics", columnDefinition = "TEXT")
+    private String selectedTopics;
 }
 

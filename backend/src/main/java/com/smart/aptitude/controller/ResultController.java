@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.core.type.TypeReference;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.ByteArrayOutputStream;
 
 @RestController
 @RequestMapping("/api/results")
@@ -114,7 +117,8 @@ public class ResultController {
     }
 
     @GetMapping("/admin/export")
-    public ResponseEntity<?> exportResultsToCsv(
+    public ResponseEntity<?> exportResultsToExcel(
+            @RequestParam(required = false) Long testId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole) {
         
         if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
@@ -122,44 +126,79 @@ public class ResultController {
                     .body(Map.of("error", "Access denied. Admin credentials required."));
         }
 
-        List<Result> results = resultRepository.findAllByOrderBySubmittedAtDesc();
-        
-        StringBuilder csvContent = new StringBuilder();
-        // CSV Header
-        csvContent.append("Student Name,Department,Email ID,Test Name,Marks\n");
-
-        for (Result r : results) {
-            String name = r.getUser() != null ? r.getUser().getName() : "N/A";
-            String dept = r.getUser() != null ? r.getUser().getDepartment() : "N/A";
-            String email = r.getUser() != null ? r.getUser().getEmail() : "N/A";
-            String testName = r.getTest() != null ? r.getTest().getTestName() : "N/A";
-            int marks = r.getScore() != null ? r.getScore() : 0;
-
-            csvContent.append(escapeCsvField(name)).append(",")
-                      .append(escapeCsvField(dept)).append(",")
-                      .append(escapeCsvField(email)).append(",")
-                      .append(escapeCsvField(testName)).append(",")
-                      .append(marks).append("\n");
+        List<Result> results;
+        if (testId != null) {
+            results = resultRepository.findByTest_TestIdOrderBySubmittedAtDesc(testId);
+        } else {
+            results = resultRepository.findAllByOrderBySubmittedAtDesc();
         }
 
-        byte[] csvBytes = csvContent.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Student Results");
 
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=student_reports.csv");
-        headers.setContentType(org.springframework.http.MediaType.parseMediaType("text/csv; charset=UTF-8"));
+            // Header Style
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
 
-        return new ResponseEntity<>(csvBytes, headers, HttpStatus.OK);
-    }
+            CellStyle headerCellStyle = workbook.createCellStyle();
+            headerCellStyle.setFont(headerFont);
+            headerCellStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerCellStyle.setAlignment(HorizontalAlignment.CENTER);
 
-    private String escapeCsvField(String field) {
-        if (field == null) {
-            return "";
+            // Columns
+            String[] columns = {"Student Name", "Roll Number", "Department", "Email ID", "Test Name", "Category", "Score", "Percentage (%)", "Submitted At"};
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerCellStyle);
+            }
+
+            int rowNum = 1;
+            for (Result r : results) {
+                Row row = sheet.createRow(rowNum++);
+                
+                String name = r.getUser() != null ? r.getUser().getName() : "N/A";
+                String roll = r.getUser() != null && r.getUser().getRollNumber() != null ? r.getUser().getRollNumber() : "N/A";
+                String dept = r.getUser() != null && r.getUser().getDepartment() != null ? r.getUser().getDepartment() : "N/A";
+                String email = r.getUser() != null ? r.getUser().getEmail() : "N/A";
+                String testName = r.getTest() != null ? r.getTest().getTestName() : "N/A";
+                String category = r.getTest() != null ? r.getTest().getCategory() : "N/A";
+                int score = r.getScore() != null ? r.getScore() : 0;
+                double percentage = r.getPercentage() != null ? r.getPercentage() : 0.0;
+                String submittedAt = r.getSubmittedAt() != null ? r.getSubmittedAt().toString() : "N/A";
+
+                row.createCell(0).setCellValue(name);
+                row.createCell(1).setCellValue(roll);
+                row.createCell(2).setCellValue(dept);
+                row.createCell(3).setCellValue(email);
+                row.createCell(4).setCellValue(testName);
+                row.createCell(5).setCellValue(category);
+                row.createCell(6).setCellValue(score);
+                row.createCell(7).setCellValue(percentage);
+                row.createCell(8).setCellValue(submittedAt);
+            }
+
+            // Auto-size columns
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            byte[] excelBytes = out.toByteArray();
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=student_reports.xlsx");
+            headers.setContentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+
+            return new ResponseEntity<>(excelBytes, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to generate Excel report: " + e.getMessage()));
         }
-        String value = field.replace("\"", "\"\"");
-        if (value.contains(",") || value.contains("\n") || value.contains("\r") || value.contains("\"")) {
-            return "\"" + value + "\"";
-        }
-        return value;
     }
 }
 

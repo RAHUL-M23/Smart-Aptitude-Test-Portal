@@ -9,4 +9,5 @@ import java.util.List;
 public interface ResultRepository extends JpaRepository<Result, Long> {
     List<Result> findByUser_IdOrderBySubmittedAtDesc(Long userId);
     List<Result> findAllByOrderBySubmittedAtDesc();
+    List<Result> findByTest_TestIdOrderBySubmittedAtDesc(Long testId);
 }

@@ -37,4 +37,10 @@ public class Question {
     
     @Column(name = "test_id", nullable = false)
     private Long testId;
+
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "sub_topic")
+    private String subTopic;
 }

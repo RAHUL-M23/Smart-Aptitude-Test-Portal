@@ -1,7 +1,54 @@
 import { useState, useEffect } from 'react';
 
+const PREDEFINED_TOPICS = {
+  "Quantitative Aptitude": {
+    "Number System": ["Divisibility Rules", "Factors & Multiples", "HCF & LCM", "Remainders", "Unit Digit"],
+    "Arithmetic": ["Percentage", "Profit & Loss", "Simple Interest", "Compound Interest", "Ratio & Proportion", "Partnership", "Average", "Age Problems", "Mixture & Allegation"],
+    "Time Related": ["Time & Work", "Pipes & Cisterns", "Time, Speed & Distance", "Trains", "Boats & Streams"],
+    "Algebra": ["Linear Equations", "Quadratic Equations", "Surds & Indices"],
+    "Geometry & Mensuration": ["Area", "Perimeter", "Volume", "Surface Area", "Circles", "Triangles"],
+    "Permutation & Probability": ["Permutation & Combination", "Probability"],
+    "Data Interpretation": ["Tables", "Pie Charts", "Bar Graphs", "Line Graphs"]
+  },
+  "Logical Reasoning": {
+    "Series": ["Number Series", "Alphabet Series"],
+    "Coding-Decoding": ["Letter Coding", "Number Coding"],
+    "Analogy": ["Number Analogy", "Alphabet Analogy"],
+    "Classification": ["Odd One Out"],
+    "Blood Relations": ["Family Tree Problems"],
+    "Direction Sense": ["East-West-North-South Problems"],
+    "Ranking": ["Position & Ranking"],
+    "Seating Arrangement": ["Linear Arrangement", "Circular Arrangement"],
+    "Puzzles": ["Floor Puzzles", "Box Puzzles"],
+    "Syllogism": ["Venn Diagram", "Logical Statements"],
+    "Clocks & Calendars": ["Clocks & Calendars"]
+  },
+  "Verbal Ability (English)": {
+    "Grammar": ["Tenses", "Articles", "Prepositions", "Subject-Verb Agreement"],
+    "Vocabulary": ["Synonyms", "Antonyms", "One Word Substitution"],
+    "Reading": ["Reading Comprehension"],
+    "Sentence Based": ["Sentence Correction", "Para Jumbles", "Fill in the Blanks", "Error Spotting"]
+  },
+  "Data Sufficiency": {
+    "Data Sufficiency": ["Statement Based Questions", "Decision Making Problems"]
+  },
+  "Non-Verbal Reasoning": {
+    "Non-Verbal Reasoning": ["Mirror Images", "Water Images", "Figure Series", "Pattern Completion", "Paper Folding"]
+  },
+  "Frequently Asked Coding Aptitude Topics (IT Companies)": {
+    "Arrays": ["Reverse Array", "Largest Element", "Second Largest", "Rotate Array"],
+    "Strings": ["Reverse String", "Palindrome", "Anagram"],
+    "Searching & Sorting": ["Linear Search", "Binary Search", "Bubble Sort", "Selection Sort"],
+    "Collections": ["HashMap", "Stack", "Queue"],
+    "Basic Maths": ["Prime Number", "Factorial", "Fibonacci", "GCD/HCF", "LCM"]
+  }
+};
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('marks'); // 'marks' or 'questions'
+  const [selectedTopicsList, setSelectedTopicsList] = useState([]);
+  const [questionCategory, setQuestionCategory] = useState('');
+  const [questionSubTopic, setQuestionSubTopic] = useState('');
   const [results, setResults] = useState([]);
   const [loadingResults, setLoadingResults] = useState(true);
   const [resultsError, setResultsError] = useState('');
@@ -80,9 +127,17 @@ export default function AdminDashboard() {
     }
   }, [activeTab]);
 
-  const handleExportCsv = async () => {
+  const handleExportExcel = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results/admin/export`, {
+      let testIdParam = '';
+      if (selectedTest !== 'All') {
+        const found = tests.find(t => t.testName === selectedTest);
+        if (found) {
+          testIdParam = `?testId=${found.testId}`;
+        }
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/results/admin/export${testIdParam}`, {
         headers: {
           'X-User-Role': 'ROLE_ADMIN'
         }
@@ -92,13 +147,13 @@ export default function AdminDashboard() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'student_reports.csv';
+      a.download = selectedTest !== 'All' ? `student_reports_${selectedTest.replace(/\s+/g, '_')}.xlsx` : 'student_reports.xlsx';
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message || 'Error exporting CSV');
+      alert(err.message || 'Error exporting Excel');
     }
   };
 
@@ -118,7 +173,8 @@ export default function AdminDashboard() {
       category: newTestCategory,
       duration: Number(newTestDuration),
       totalMarks: Number(newTestTotalMarks),
-      expiryTimestamp
+      expiryTimestamp,
+      selectedTopics: JSON.stringify(selectedTopicsList)
     };
 
     try {
@@ -143,6 +199,7 @@ export default function AdminDashboard() {
       setNewTestTotalMarks('');
       setNewTestExpiryDate('');
       setNewTestExpiryTime('');
+      setSelectedTopicsList([]);
       fetchTests();
     } catch (err) {
       setCreateTestError(err.message);
@@ -242,6 +299,8 @@ export default function AdminDashboard() {
     setCorrectAnswer('A');
     setTargetTestId(tests[0]?.testId || '');
     setCurrentQuestionId(null);
+    setQuestionCategory('');
+    setQuestionSubTopic('');
     setModalError('');
   };
 
@@ -264,6 +323,8 @@ export default function AdminDashboard() {
     setOptiond(q.optiond);
     setCorrectAnswer(q.correctAnswer);
     setTargetTestId(q.testId);
+    setQuestionCategory(q.category || '');
+    setQuestionSubTopic(q.subTopic || '');
     setModalError('');
     setShowQuestionModal(true);
   };
@@ -300,7 +361,9 @@ export default function AdminDashboard() {
       optionc,
       optiond,
       correctAnswer,
-      testId: targetTestId
+      testId: targetTestId,
+      category: questionCategory,
+      subTopic: questionSubTopic
     };
 
     try {
@@ -520,7 +583,7 @@ export default function AdminDashboard() {
             </div>
 
             <button
-              onClick={handleExportCsv}
+              onClick={handleExportExcel}
               className="btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: 'auto', padding: '0.5rem 1.25rem' }}
             >
@@ -716,6 +779,20 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     </div>
+                    
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                      {q.category && (
+                        <span className="badge-role" style={{ background: 'rgba(6, 182, 212, 0.1)', color: 'var(--color-secondary)', borderColor: 'rgba(6, 182, 212, 0.2)', fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}>
+                          {q.category}
+                        </span>
+                      )}
+                      {q.subTopic && (
+                        <span className="badge-role" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', borderColor: 'rgba(139, 92, 246, 0.2)', fontSize: '0.75rem', padding: '0.15rem 0.5rem' }}>
+                          {q.subTopic}
+                        </span>
+                      )}
+                    </div>
+
                     <div className="text-highlight" style={{ fontSize: '1.05rem', fontWeight: '500', marginBottom: '1rem', lineHeight: '1.4' }}>
                       {q.questionText}
                     </div>
@@ -774,13 +851,18 @@ export default function AdminDashboard() {
                   className="form-input"
                   required
                   value={newTestCategory}
-                  onChange={(e) => setNewTestCategory(e.target.value)}
+                  onChange={(e) => {
+                    setNewTestCategory(e.target.value);
+                    setSelectedTopicsList([]);
+                  }}
                 >
                   <option value="">Select Category...</option>
-                  <option value="Aptitude">Aptitude (Quantitative)</option>
-                  <option value="Verbal">Verbal (English)</option>
-                  <option value="Reasoning">Reasoning (Logical)</option>
-                  <option value="General">General / Other</option>
+                  <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+                  <option value="Logical Reasoning">Logical Reasoning</option>
+                  <option value="Verbal Ability (English)">Verbal Ability (English)</option>
+                  <option value="Data Sufficiency">Data Sufficiency</option>
+                  <option value="Non-Verbal Reasoning">Non-Verbal Reasoning</option>
+                  <option value="Frequently Asked Coding Aptitude Topics (IT Companies)">Frequently Asked Coding Aptitude Topics (IT Companies)</option>
                 </select>
               </div>
 
@@ -798,6 +880,39 @@ export default function AdminDashboard() {
                 />
               </div>
             </div>
+
+            {newTestCategory && PREDEFINED_TOPICS[newTestCategory] && (
+              <div className="form-group" style={{ background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '1rem', color: 'var(--text-main)', display: 'block' }}>
+                  Select Topics for {newTestCategory}
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {Object.entries(PREDEFINED_TOPICS[newTestCategory]).map(([subSection, topics]) => (
+                    <div key={subSection} style={{ paddingLeft: '0.5rem' }}>
+                      <h4 style={{ color: 'var(--color-secondary)', fontSize: '0.95rem', fontWeight: '600', marginBottom: '0.5rem' }}>{subSection}</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', paddingLeft: '0.75rem' }}>
+                        {topics.map((topic) => (
+                          <label key={topic} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedTopicsList.includes(topic)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTopicsList(prev => [...prev, topic]);
+                                } else {
+                                  setSelectedTopicsList(prev => prev.filter(t => t !== topic));
+                                }
+                              }}
+                            />
+                            {topic}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
               <div className="form-group">
@@ -856,24 +971,41 @@ export default function AdminDashboard() {
                     <th>Test ID</th>
                     <th>Test Name</th>
                     <th>Category</th>
+                    <th>Topics</th>
                     <th>Duration</th>
                     <th>Marks</th>
                     <th>Expiry Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tests.map((t) => (
-                    <tr key={t.testId}>
-                      <td>{t.testId}</td>
-                      <td className="text-highlight">{t.testName}</td>
-                      <td>{t.category}</td>
-                      <td>{t.duration} mins</td>
-                      <td>{t.totalMarks}</td>
-                      <td style={{ fontSize: '0.85rem' }}>
-                        {t.expiryTimestamp ? formatDate(t.expiryTimestamp) : 'No expiry set'}
-                      </td>
-                    </tr>
-                  ))}
+                  {tests.map((t) => {
+                    let topicsStr = 'N/A';
+                    if (t.selectedTopics) {
+                      try {
+                        const parsed = JSON.parse(t.selectedTopics);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          topicsStr = parsed.join(', ');
+                        }
+                      } catch (e) {
+                        topicsStr = t.selectedTopics;
+                      }
+                    }
+                    return (
+                      <tr key={t.testId}>
+                        <td>{t.testId}</td>
+                        <td className="text-highlight">{t.testName}</td>
+                        <td>{t.category}</td>
+                        <td style={{ fontSize: '0.8rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={topicsStr}>
+                          {topicsStr}
+                        </td>
+                        <td>{t.duration} mins</td>
+                        <td>{t.totalMarks}</td>
+                        <td style={{ fontSize: '0.85rem' }}>
+                          {t.expiryTimestamp ? formatDate(t.expiryTimestamp) : 'No expiry set'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1043,6 +1175,43 @@ export default function AdminDashboard() {
                         {t.testName} ({t.category})
                       </option>
                     ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Category</label>
+                  <select
+                    className="form-input"
+                    value={questionCategory}
+                    onChange={(e) => {
+                      setQuestionCategory(e.target.value);
+                      setQuestionSubTopic('');
+                    }}
+                  >
+                    <option value="">Select Category...</option>
+                    {Object.keys(PREDEFINED_TOPICS).map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Sub-topic</label>
+                  <select
+                    className="form-input"
+                    value={questionSubTopic}
+                    onChange={(e) => setQuestionSubTopic(e.target.value)}
+                    disabled={!questionCategory}
+                  >
+                    <option value="">Select Sub-topic...</option>
+                    {questionCategory && PREDEFINED_TOPICS[questionCategory] && 
+                      Object.entries(PREDEFINED_TOPICS[questionCategory]).flatMap(([subSection, topics]) => 
+                        topics.map(topic => (
+                          <option key={topic} value={topic}>{subSection} - {topic}</option>
+                        ))
+                      )
+                    }
                   </select>
                 </div>
               </div>

@@ -46,7 +46,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         Test testReasoning = seedTest(3L, "Logical Reasoning", "Reasoning", 20, 20);
 
         // Check if database contains old questions or needs re-seeding
-        boolean needsReseed = questionRepository.count() == 0;
+        boolean needsReseed = questionRepository.count() == 0 || questionRepository.count() < 600 || questionRepository.findAll().stream().anyMatch(q -> q.getCategory() == null);
 
 
         // Seed 505 questions partitioned across the 3 tests
@@ -352,6 +352,41 @@ public class DatabaseSeeder implements CommandLineRunner {
                         q.setCorrectAnswer("B");
                     }
                 }
+                
+                int templateId = i % 10;
+                if (categoryType == 0) {
+                    q.setCategory("Quantitative Aptitude");
+                    if (templateId == 0 || templateId == 3 || templateId == 4 || templateId == 6 || templateId == 7 || templateId == 8 || templateId == 9) {
+                        q.setSubTopic("Arithmetic");
+                    } else if (templateId == 1 || templateId == 2) {
+                        q.setSubTopic("Time Related");
+                    } else if (templateId == 5) {
+                        q.setSubTopic("Permutation & Probability");
+                    }
+                } else if (categoryType == 1) {
+                    q.setCategory("Verbal Ability (English)");
+                    if (templateId == 0 || templateId == 4 || templateId == 6 || templateId == 8) {
+                        q.setSubTopic("Vocabulary");
+                    } else {
+                        q.setSubTopic("Grammar");
+                    }
+                } else {
+                    q.setCategory("Logical Reasoning");
+                    if (templateId == 0) {
+                        q.setSubTopic("Seating Arrangement");
+                    } else if (templateId == 1) {
+                        q.setSubTopic("Coding-Decoding");
+                    } else if (templateId == 2 || templateId == 5 || templateId == 6) {
+                        q.setSubTopic("Puzzles");
+                    } else if (templateId == 3) {
+                        q.setSubTopic("Blood Relations");
+                    } else if (templateId == 4 || templateId == 8 || templateId == 9) {
+                        q.setSubTopic("Syllogism");
+                    } else if (templateId == 7) {
+                        q.setSubTopic("Series");
+                    }
+                }
+
                 questionsPool.add(q);
             }
             questionRepository.saveAll(questionsPool);
