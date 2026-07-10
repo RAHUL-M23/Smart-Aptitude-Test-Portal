@@ -148,7 +148,7 @@ public class ResultController {
             headerCellStyle.setAlignment(HorizontalAlignment.CENTER);
 
             // Columns
-            String[] columns = {"Student Name", "Roll Number", "Department", "Email ID", "Test Name", "Category", "Score", "Percentage (%)", "Submitted At"};
+            String[] columns = {"Student Name", "Student ID / Email", "Test Name", "Test Type", "Total Marks / Score", "Date of Attempt"};
             Row headerRow = sheet.createRow(0);
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -161,24 +161,23 @@ public class ResultController {
                 Row row = sheet.createRow(rowNum++);
                 
                 String name = r.getUser() != null ? r.getUser().getName() : "N/A";
-                String roll = r.getUser() != null && r.getUser().getRollNumber() != null ? r.getUser().getRollNumber() : "N/A";
-                String dept = r.getUser() != null && r.getUser().getDepartment() != null ? r.getUser().getDepartment() : "N/A";
-                String email = r.getUser() != null ? r.getUser().getEmail() : "N/A";
+                String idEmail = r.getUser() != null 
+                    ? ((r.getUser().getRollNumber() != null && !r.getUser().getRollNumber().isBlank())
+                        ? r.getUser().getRollNumber() + " / " + r.getUser().getEmail()
+                        : r.getUser().getEmail())
+                    : "N/A";
                 String testName = r.getTest() != null ? r.getTest().getTestName() : "N/A";
-                String category = r.getTest() != null ? r.getTest().getCategory() : "N/A";
-                int score = r.getScore() != null ? r.getScore() : 0;
-                double percentage = r.getPercentage() != null ? r.getPercentage() : 0.0;
-                String submittedAt = r.getSubmittedAt() != null ? r.getSubmittedAt().toString() : "N/A";
+                String testType = r.getTest() != null ? r.getTest().getCategory() : "N/A";
+                String totalMarksScore = (r.getScore() != null ? r.getScore() : 0) + " / " + 
+                    ((r.getTest() != null && r.getTest().getTotalMarks() != null) ? r.getTest().getTotalMarks() : 10);
+                String attemptDate = r.getSubmittedAt() != null ? r.getSubmittedAt().toString() : "N/A";
 
                 row.createCell(0).setCellValue(name);
-                row.createCell(1).setCellValue(roll);
-                row.createCell(2).setCellValue(dept);
-                row.createCell(3).setCellValue(email);
-                row.createCell(4).setCellValue(testName);
-                row.createCell(5).setCellValue(category);
-                row.createCell(6).setCellValue(score);
-                row.createCell(7).setCellValue(percentage);
-                row.createCell(8).setCellValue(submittedAt);
+                row.createCell(1).setCellValue(idEmail);
+                row.createCell(2).setCellValue(testName);
+                row.createCell(3).setCellValue(testType);
+                row.createCell(4).setCellValue(totalMarksScore);
+                row.createCell(5).setCellValue(attemptDate);
             }
 
             // Auto-size columns
