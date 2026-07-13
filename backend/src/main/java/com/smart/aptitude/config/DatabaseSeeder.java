@@ -16,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.core.io.ClassPathResource;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import java.io.InputStream;
 
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
@@ -36,7 +40,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         // Seed default users
-        seedUser("admin7@gmail.com", "System Admin", "admin@77", "ROLE_ADMIN", "ADMIN007", "Administration");
+        seedUser("mrahulmathi0@gmail.com", "System Admin", "RahulRahul@22", "ROLE_ADMIN", "ADMIN007", "Administration");
         seedUser("student@example.com", "Alex Student", "student123", "ROLE_STUDENT", "ROLL1001", "Computer Science");
         seedUser("rahul@gmail.com", "rahul m", "rahul123", "ROLE_STUDENT", "ROLL1002", "Information Technology");
 
@@ -395,13 +399,18 @@ public class DatabaseSeeder implements CommandLineRunner {
         } else {
             System.out.println("Database already contains " + questionRepository.count() + " partitioned questions.");
         }
+        seedQuestionsFromJson();
     }
 
     private Test seedTest(Long testId, String name, String category, int duration, int totalMarks) {
         List<Test> allTests = testRepository.findAll();
         for (Test t : allTests) {
             if (name.equals(t.getTestName())) {
-                return t;
+                t.setIsActive(true);
+                t.setCategory(category);
+                t.setDuration(duration);
+                t.setTotalMarks(totalMarks);
+                return testRepository.saveAndFlush(t);
             }
         }
         Test t = new Test();
@@ -409,6 +418,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         t.setCategory(category);
         t.setDuration(duration);
         t.setTotalMarks(totalMarks);
+        t.setIsActive(true);
         return testRepository.saveAndFlush(t);
     }
 
@@ -417,13 +427,20 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private void seedUser(String email, String name, String rawPassword, String role, String rollNumber, String department) {
         Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty() && rollNumber != null && !rollNumber.isEmpty()) {
+            userOpt = userRepository.findAll().stream()
+                    .filter(u -> rollNumber.equals(u.getRollNumber()))
+                    .findFirst();
+        }
         if (userOpt.isPresent()) {
             User user = userOpt.get();
+            user.setEmail(email);
             user.setPassword(passwordEncoder.encode(rawPassword));
             user.setName(name);
             user.setRole(role);
             user.setRollNumber(rollNumber);
             user.setDepartment(department);
+            user.setIsActive(true);
             userRepository.save(user);
             System.out.println("User updated: " + email + " with role: " + role + " (Password: " + rawPassword + ")");
         } else {
@@ -434,8 +451,49 @@ public class DatabaseSeeder implements CommandLineRunner {
             user.setRole(role);
             user.setRollNumber(rollNumber);
             user.setDepartment(department);
+            user.setIsActive(true);
             userRepository.save(user);
             System.out.println("User created: " + email + " with role: " + role + " (Password: " + rawPassword + ")");
+        }
+    }
+
+    private void seedQuestionsFromJson() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream inputStream = new ClassPathResource("questions_seed.json").getInputStream();
+            List<Question> list = mapper.readValue(inputStream, new TypeReference<List<Question>>() {});
+            
+            for (Question q : list) {
+                if (q.getCategory().contains("Quantitative")) {
+                    q.setTestId(1L);
+                } else if (q.getCategory().contains("Verbal")) {
+                    q.setTestId(2L);
+                } else if (q.getCategory().contains("Logical")) {
+                    q.setTestId(3L);
+                } else {
+                    q.setTestId(1L); // Default fallback
+                }
+
+                List<Question> existing = questionRepository.findByCategoryAndSubTopic(q.getCategory(), q.getSubTopic());
+                if (existing.isEmpty()) {
+                    questionRepository.save(q);
+                } else {
+                    Question dbQ = existing.get(0);
+                    dbQ.setExplanation(q.getExplanation());
+                    dbQ.setQuestionText(q.getQuestionText());
+                    dbQ.setOptiona(q.getOptiona());
+                    dbQ.setOptionb(q.getOptionb());
+                    dbQ.setOptionc(q.getOptionc());
+                    dbQ.setOptiond(q.getOptiond());
+                    dbQ.setCorrectAnswer(q.getCorrectAnswer());
+                    dbQ.setTestId(q.getTestId());
+                    questionRepository.save(dbQ);
+                }
+            }
+            System.out.println("Successfully seeded " + list.size() + " sub-topic questions from JSON.");
+        } catch (Exception e) {
+            System.err.println("Error seeding questions from JSON: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

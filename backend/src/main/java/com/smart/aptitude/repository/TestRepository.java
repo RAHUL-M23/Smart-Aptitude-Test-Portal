@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface TestRepository extends JpaRepository<Test, Long> {
     List<Test> findByCategoryIgnoreCase(String category);
+    List<Test> findByIsActiveTrue();
+    List<Test> findByCategoryIgnoreCaseAndIsActiveTrue(String category);
 }

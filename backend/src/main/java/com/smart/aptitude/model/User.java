@@ -35,4 +35,7 @@ public class User {
 
     @Column(name = "department", nullable = true)
     private String department;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 }

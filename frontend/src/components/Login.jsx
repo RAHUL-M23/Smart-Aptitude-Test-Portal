@@ -173,7 +173,7 @@ export default function Login({ onLoginSuccess, onNavigateToRegister }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {[
                 { name: 'Alex Student', email: 'student@example.com', pw: 'student123', avatar: 'AS' },
-                { name: 'System Admin', email: 'admin7@gmail.com', pw: 'admin@77', avatar: 'SA' },
+                { name: 'System Admin', email: 'mrahulmathi0@gmail.com', pw: 'RahulRahul@22', avatar: 'SA' },
                 { name: 'rahul m', email: 'rahul@gmail.com', pw: 'rahul123', avatar: 'RM' }
               ].map((acc) => (
                 <button

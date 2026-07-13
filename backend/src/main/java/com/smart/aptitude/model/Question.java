@@ -43,4 +43,7 @@ public class Question {
 
     @Column(name = "sub_topic")
     private String subTopic;
+
+    @Column(name = "explanation", columnDefinition = "TEXT")
+    private String explanation;
 }

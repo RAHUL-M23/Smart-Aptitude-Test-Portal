@@ -37,13 +37,13 @@ public class TestController {
 
     @GetMapping
     public List<Test> getAllTests() {
-        return testRepository.findAll();
+        return testRepository.findByIsActiveTrue();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getTestDetails(@PathVariable Long id, @RequestParam(required = false) Long userId) {
         Optional<Test> testOpt = testRepository.findById(id);
-        if (testOpt.isEmpty()) {
+        if (testOpt.isEmpty() || (testOpt.get().getIsActive() != null && !testOpt.get().getIsActive())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
         }
 
@@ -57,7 +57,7 @@ public class TestController {
         if (questions.isEmpty() && !test.getTestName().toLowerCase().contains("empty")) {
             String category = test.getCategory();
             if (category != null && !category.isBlank()) {
-                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCase(category);
+                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCaseAndIsActiveTrue(category);
                 for (Test t : sameCategoryTests) {
                     List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
                     if (!fallbackQs.isEmpty()) {
@@ -67,7 +67,7 @@ public class TestController {
                 }
             }
             if (questions.isEmpty()) {
-                List<Test> allTests = testRepository.findAll();
+                List<Test> allTests = testRepository.findByIsActiveTrue();
                 for (Test t : allTests) {
                     List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
                     if (!fallbackQs.isEmpty()) {
@@ -121,7 +121,7 @@ public class TestController {
         }
 
         Optional<Test> testOpt = testRepository.findById(id);
-        if (testOpt.isEmpty()) {
+        if (testOpt.isEmpty() || (testOpt.get().getIsActive() != null && !testOpt.get().getIsActive())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
         }
         Test test = testOpt.get();
@@ -130,7 +130,7 @@ public class TestController {
         if (questions.isEmpty() && !test.getTestName().toLowerCase().contains("empty")) {
             String category = test.getCategory();
             if (category != null && !category.isBlank()) {
-                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCase(category);
+                List<Test> sameCategoryTests = testRepository.findByCategoryIgnoreCaseAndIsActiveTrue(category);
                 for (Test t : sameCategoryTests) {
                     List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
                     if (!fallbackQs.isEmpty()) {
@@ -140,7 +140,7 @@ public class TestController {
                 }
             }
             if (questions.isEmpty()) {
-                List<Test> allTests = testRepository.findAll();
+                List<Test> allTests = testRepository.findByIsActiveTrue();
                 for (Test t : allTests) {
                     List<Question> fallbackQs = questionRepository.findByTestId(t.getTestId());
                     if (!fallbackQs.isEmpty()) {
@@ -263,6 +263,10 @@ public class TestController {
             return ResponseEntity.badRequest().body(Map.of("error", "All fields (name, category, duration, total marks) are required."));
         }
 
+        if (test.getIsActive() == null) {
+            test.setIsActive(true);
+        }
+
         Test saved = testRepository.save(test);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -349,6 +353,55 @@ public class TestController {
 
         questionRepository.delete(questionOpt.get());
         return ResponseEntity.ok(Map.of("message", "Question deleted successfully"));
+    }
+
+    @DeleteMapping("/admin/{id}")
+    public ResponseEntity<?> deleteTest(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        
+        if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied. Admin credentials required."));
+        }
+
+        Optional<Test> testOpt = testRepository.findById(id);
+        if (testOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
+        }
+
+        Test test = testOpt.get();
+        test.setIsActive(false);
+        testRepository.save(test);
+
+        return ResponseEntity.ok(Map.of("message", "Test deleted successfully"));
+    }
+
+    @PostMapping("/generate-questions")
+    public ResponseEntity<?> generateQuestions(@RequestBody GenerateQuestionsRequest request) {
+        if (request.getSubTopics() == null || request.getSubTopics().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "At least one sub-topic must be selected."));
+        }
+
+        List<Question> questions = questionRepository.findBySubTopicIn(request.getSubTopics());
+
+        // Shuffle the selected questions randomly
+        Collections.shuffle(questions);
+
+        // Limit the number of questions returned if a limit is specified
+        if (request.getLimit() != null && request.getLimit() > 0) {
+            questions = questions.stream()
+                    .limit(request.getLimit())
+                    .collect(Collectors.toList());
+        }
+
+        return ResponseEntity.ok(questions);
+    }
+
+    @Data
+    public static class GenerateQuestionsRequest {
+        private List<String> subTopics;
+        private Integer limit;
     }
 
     @Data

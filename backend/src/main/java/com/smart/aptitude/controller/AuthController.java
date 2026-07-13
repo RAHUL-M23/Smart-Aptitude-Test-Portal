@@ -36,6 +36,9 @@ public class AuthController {
         }
 
         User user = userOpt.get();
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "This account has been deleted."));
+        }
         if (!passwordEncoder.matches(password, user.getPassword())) {
             // Extra safety: Check if password stored is raw (in case of legacy/unhashed DB data).
             // Let's do a direct equals comparison to support unhashed passwords during initial testing
@@ -79,6 +82,7 @@ public class AuthController {
         // Set encoded password and default role
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole("ROLE_STUDENT"); // Default role for standard registrations
+        user.setIsActive(true);
 
         User savedUser = userRepository.save(user);
         
@@ -149,6 +153,9 @@ public class AuthController {
         java.util.List<java.util.Map<String, Object>> responseList = new java.util.ArrayList<>();
         
         for (User u : users) {
+            if (u.getIsActive() != null && !u.getIsActive()) {
+                continue;
+            }
             java.util.Map<String, Object> map = new java.util.HashMap<>();
             map.put("id", u.getId());
             map.put("name", u.getName());
@@ -161,6 +168,32 @@ public class AuthController {
         }
         
         return ResponseEntity.ok(responseList);
+    }
+
+    @DeleteMapping("/admin/users/{id}")
+    public ResponseEntity<?> deleteUser(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        
+        if (userRole == null || !userRole.equals("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied. Admin credentials required."));
+        }
+
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "User not found"));
+        }
+
+        User user = userOpt.get();
+        if (user.getRole().equals("ROLE_ADMIN")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Admin accounts cannot be deleted."));
+        }
+
+        user.setIsActive(false);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of("message", "User account deleted successfully."));
     }
 }
 

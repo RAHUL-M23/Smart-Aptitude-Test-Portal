@@ -101,11 +101,59 @@ export default function AdminDashboard() {
   const [createTestError, setCreateTestError] = useState('');
   const [createTestSuccess, setCreateTestSuccess] = useState('');
   const [createTestSubmitting, setCreateTestSubmitting] = useState(false);
+  
+  // Delete Test State
+  const [showDeleteTestModal, setShowDeleteTestModal] = useState(false);
+  const [testToDelete, setTestToDelete] = useState(null);
+  const [deleteTestSubmitting, setDeleteTestSubmitting] = useState(false);
+  const [deleteTestError, setDeleteTestError] = useState('');
+
+  // Delete User State
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteUserSubmitting, setDeleteUserSubmitting] = useState(false);
+  const [deleteUserError, setDeleteUserError] = useState('');
+  const [usersSuccess, setUsersSuccess] = useState('');
+
+  const handleDeleteUserClick = (user) => {
+    setUserToDelete(user);
+    setDeleteUserError('');
+    setUsersSuccess('');
+    setShowDeleteUserModal(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleteUserSubmitting(true);
+    setDeleteUserError('');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/admin/users/${userToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Role': 'ROLE_ADMIN'
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete student account');
+      }
+
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setUsersSuccess(`Student ${userToDelete.name} has been deleted successfully!`);
+      setShowDeleteUserModal(false);
+      setUserToDelete(null);
+    } catch (err) {
+      setDeleteUserError(err.message);
+    } finally {
+      setDeleteUserSubmitting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
       setUsersError('');
+      setUsersSuccess('');
       const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/admin/users`, {
         headers: {
           'X-User-Role': 'ROLE_ADMIN'
@@ -205,6 +253,48 @@ export default function AdminDashboard() {
       setCreateTestError(err.message);
     } finally {
       setCreateTestSubmitting(false);
+    }
+  };
+
+  const handleDeleteTestClick = (test) => {
+    setTestToDelete(test);
+    setDeleteTestError('');
+    setShowDeleteTestModal(true);
+  };
+
+  const confirmDeleteTest = async () => {
+    if (!testToDelete) return;
+    setDeleteTestSubmitting(true);
+    setDeleteTestError('');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/tests/admin/${testToDelete.testId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-User-Role': 'ROLE_ADMIN'
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete test');
+      }
+
+      setTests(prev => prev.filter(t => t.testId !== testToDelete.testId));
+
+      if (selectedQuestionsTestId === testToDelete.testId) {
+        const remaining = tests.filter(t => t.testId !== testToDelete.testId);
+        setSelectedQuestionsTestId(remaining.length > 0 ? remaining[0].testId : null);
+      }
+      
+      if (selectedTest === testToDelete.testName) {
+        setSelectedTest('All');
+      }
+
+      setShowDeleteTestModal(false);
+      setTestToDelete(null);
+    } catch (err) {
+      setDeleteTestError(err.message);
+    } finally {
+      setDeleteTestSubmitting(false);
     }
   };
 
@@ -427,7 +517,7 @@ export default function AdminDashboard() {
   };
 
   // Student Marks Filtering
-  const uniqueTests = ['All', ...new Set(results.map(r => r.test?.testName).filter(Boolean))];
+  const uniqueTests = ['All', ...new Set(results.filter(r => r.test?.isActive !== false).map(r => r.test?.testName).filter(Boolean))];
   const filteredResults = results.filter((res) => {
     const studentName = res.user?.name || '';
     const studentEmail = res.user?.email || '';
@@ -975,6 +1065,7 @@ export default function AdminDashboard() {
                     <th>Duration</th>
                     <th>Marks</th>
                     <th>Expiry Timestamp</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1003,6 +1094,17 @@ export default function AdminDashboard() {
                         <td style={{ fontSize: '0.85rem' }}>
                           {t.expiryTimestamp ? formatDate(t.expiryTimestamp) : 'No expiry set'}
                         </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-logout"
+                            style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                            onClick={() => handleDeleteTestClick(t)}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1025,6 +1127,12 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {usersSuccess && (
+            <div className="alert-box alert-success" style={{ marginBottom: '1.5rem' }}>
+              <span>{usersSuccess}</span>
+            </div>
+          )}
+
           {loadingUsers ? (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>
               Loading credential registry...
@@ -1041,6 +1149,7 @@ export default function AdminDashboard() {
                     <th>Roll Number</th>
                     <th>Department</th>
                     <th>Password (BCrypt Hash)</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1058,6 +1167,20 @@ export default function AdminDashboard() {
                       <td>{u.department || 'N/A'}</td>
                       <td style={{ fontSize: '0.75rem', fontFamily: 'monospace', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={u.password}>
                         {u.password || 'N/A'}
+                      </td>
+                      <td>
+                        {u.role !== 'ROLE_ADMIN' && (
+                          <button
+                            type="button"
+                            className="btn-logout"
+                            style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                            onClick={() => handleDeleteUserClick(u)}
+                            title="Delete Student"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1370,6 +1493,82 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {showDeleteTestModal && testToDelete && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '450px', position: 'relative', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--text-main)' }}>Delete Assessment</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              Are you sure you want to delete <strong>{testToDelete.testName}</strong>? This action cannot be undone. Past student records for this test will be preserved in reports.
+            </p>
+            {deleteTestError && (
+              <div className="alert-box alert-error" style={{ marginBottom: '1rem' }}>
+                <span>{deleteTestError}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="btn-nav" 
+                style={{ padding: '0.5rem 1.25rem' }}
+                onClick={() => {
+                  setShowDeleteTestModal(false);
+                  setTestToDelete(null);
+                }}
+                disabled={deleteTestSubmitting}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-logout" 
+                style={{ padding: '0.5rem 1.25rem', margin: 0 }}
+                onClick={confirmDeleteTest}
+                disabled={deleteTestSubmitting}
+              >
+                {deleteTestSubmitting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteUserModal && userToDelete && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '450px', position: 'relative', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--text-main)' }}>Delete Student Account</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+              Are you sure you want to delete this student account? They will no longer be able to log in, but their past test records will be preserved.
+            </p>
+            {deleteUserError && (
+              <div className="alert-box alert-error" style={{ marginBottom: '1rem' }}>
+                <span>{deleteUserError}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="btn-nav" 
+                style={{ padding: '0.5rem 1.25rem' }}
+                onClick={() => {
+                  setShowDeleteUserModal(false);
+                  setUserToDelete(null);
+                }}
+                disabled={deleteUserSubmitting}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-logout" 
+                style={{ padding: '0.5rem 1.25rem', margin: 0 }}
+                onClick={confirmDeleteUser}
+                disabled={deleteUserSubmitting}
+              >
+                {deleteUserSubmitting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
