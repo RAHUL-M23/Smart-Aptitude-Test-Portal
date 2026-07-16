@@ -183,6 +183,16 @@ export default function StudentDashboard({
             {tests.map((test) => {
               const isCompleted = attempts.some(a => a.test && a.test.testId === test.testId);
               const isExpired = test.expiryTimestamp && new Date(test.expiryTimestamp) < new Date();
+              const isStrict = test.createdByAdmin === true;
+              const isBlocked = isExpired || (isCompleted && isStrict);
+
+              let buttonText = 'Start Test';
+              if (isExpired) {
+                buttonText = 'Expired';
+              } else if (isCompleted) {
+                buttonText = isStrict ? 'Completed' : 'Retake Test';
+              }
+
               return (
                 <div key={test.testId} className={`glass-card test-card category-${(test.category || 'general').toLowerCase()} ${isCompleted ? 'completed-card' : ''} ${isExpired ? 'expired-card' : ''}`}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, width: '100%' }}>
@@ -220,12 +230,12 @@ export default function StudentDashboard({
                     style={{ 
                       width: '100%', 
                       marginTop: '1.25rem', 
-                      ...(isExpired ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--border-color)', color: 'var(--text-muted)' } : {}) 
+                      ...(isBlocked ? { opacity: 0.5, cursor: 'not-allowed', background: 'var(--border-color)', color: 'var(--text-muted)' } : {}) 
                     }}
-                    onClick={() => !isExpired && onSelectTest(test.testId)}
-                    disabled={isExpired}
+                    onClick={() => !isBlocked && onSelectTest(test.testId)}
+                    disabled={isBlocked}
                   >
-                    {isExpired ? 'Expired' : isCompleted ? 'Retake Test' : 'Start Test'}
+                    {buttonText}
                   </button>
                 </div>
               );

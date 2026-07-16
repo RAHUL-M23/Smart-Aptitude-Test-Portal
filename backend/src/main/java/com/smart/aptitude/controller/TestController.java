@@ -40,6 +40,15 @@ public class TestController {
         return testRepository.findByIsActiveTrue();
     }
 
+    @GetMapping("/by-link/{uniqueLinkId}")
+    public ResponseEntity<?> getTestByLink(@PathVariable String uniqueLinkId) {
+        Optional<Test> testOpt = testRepository.findByUniqueLinkId(uniqueLinkId);
+        if (testOpt.isEmpty() || (testOpt.get().getIsActive() != null && !testOpt.get().getIsActive())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Test not found"));
+        }
+        return ResponseEntity.ok(testOpt.get());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getTestDetails(@PathVariable Long id, @RequestParam(required = false) Long userId) {
         Optional<Test> testOpt = testRepository.findById(id);
@@ -48,6 +57,13 @@ public class TestController {
         }
 
         Test test = testOpt.get();
+        if (userId != null && test.getCreatedByAdmin() != null && test.getCreatedByAdmin()) {
+            boolean alreadyTaken = resultRepository.existsByUser_IdAndTest_TestId(userId, id);
+            if (alreadyTaken) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You have already completed this test and cannot retake it."));
+            }
+        }
         if (test.getExpiryTimestamp() != null && LocalDateTime.now().isAfter(test.getExpiryTimestamp())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "This test has expired and is no longer available."));
@@ -78,6 +94,9 @@ public class TestController {
             }
         }
 
+        // Strictly exclude programming/coding questions
+        questions = excludeProgrammingQuestions(questions);
+
         // Shuffle the questions pool randomly (shuffling constraint)
         Collections.shuffle(questions);
 
@@ -98,6 +117,7 @@ public class TestController {
             sq.setOptiond(q.getOptiond());
             sq.setTestId(id); // Associate with the requested test ID
             sq.setCorrectAnswer(null); // Keep correctAnswer hidden for students
+            sq.setImageUrl(q.getImageUrl());
             return sq;
         }).collect(Collectors.toList());
 
@@ -150,6 +170,9 @@ public class TestController {
                 }
             }
         }
+        
+        // Strictly exclude programming/coding questions
+        questions = excludeProgrammingQuestions(questions);
 
         // Limit the assessment to the configured number of questions
         int limit = test.getTotalMarks() != null ? test.getTotalMarks() : 10;
@@ -168,6 +191,9 @@ public class TestController {
             mq.setOptiond(q.getOptiond());
             mq.setCorrectAnswer(q.getCorrectAnswer());
             mq.setTestId(id);
+            mq.setImageUrl(q.getImageUrl());
+            mq.setCategory(q.getCategory());
+            mq.setSubTopic(q.getSubTopic());
             return mq;
         }).collect(Collectors.toList());
 
@@ -266,6 +292,8 @@ public class TestController {
         if (test.getIsActive() == null) {
             test.setIsActive(true);
         }
+        test.setCreatedByAdmin(true);
+        test.setUniqueLinkId(java.util.UUID.randomUUID().toString());
 
         Test saved = testRepository.save(test);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
@@ -331,6 +359,7 @@ public class TestController {
         question.setTestId(questionDetails.getTestId());
         question.setCategory(questionDetails.getCategory());
         question.setSubTopic(questionDetails.getSubTopic());
+        question.setImageUrl(questionDetails.getImageUrl());
 
         Question updated = questionRepository.save(question);
         return ResponseEntity.ok(updated);
@@ -385,6 +414,9 @@ public class TestController {
 
         List<Question> questions = questionRepository.findBySubTopicIn(request.getSubTopics());
 
+        // Strictly exclude programming/coding questions
+        questions = excludeProgrammingQuestions(questions);
+
         // Shuffle the selected questions randomly
         Collections.shuffle(questions);
 
@@ -396,6 +428,41 @@ public class TestController {
         }
 
         return ResponseEntity.ok(questions);
+    }
+
+    private List<Question> excludeProgrammingQuestions(List<Question> questions) {
+        if (questions == null) return new ArrayList<>();
+        
+        // Keywords to strictly filter out (case-insensitive)
+        Set<String> keywords = Set.of(
+            "programming", "coding", "java", "python", "c++", "javascript", "typescript",
+            "c#", "ruby", "rust", "php", "swift", "kotlin", "compiler", "debugging",
+            "algorithm", "data structure", "pointer", "array", "binary tree", "recursion",
+            "oop", "object-oriented", "function call", "loop", "variables", "sql query", 
+            "developer", "lines of code"
+        );
+        
+        return questions.stream()
+                .filter(q -> {
+                    String text = q.getQuestionText() != null ? q.getQuestionText().toLowerCase() : "";
+                    String optionA = q.getOptiona() != null ? q.getOptiona().toLowerCase() : "";
+                    String optionB = q.getOptionb() != null ? q.getOptionb().toLowerCase() : "";
+                    String optionC = q.getOptionc() != null ? q.getOptionc().toLowerCase() : "";
+                    String optionD = q.getOptiond() != null ? q.getOptiond().toLowerCase() : "";
+                    String category = q.getCategory() != null ? q.getCategory().toLowerCase() : "";
+                    String subTopic = q.getSubTopic() != null ? q.getSubTopic().toLowerCase() : "";
+                    
+                    return keywords.stream().noneMatch(keyword -> 
+                        text.contains(keyword) || 
+                        optionA.contains(keyword) || 
+                        optionB.contains(keyword) || 
+                        optionC.contains(keyword) || 
+                        optionD.contains(keyword) ||
+                        category.contains(keyword) || 
+                        subTopic.contains(keyword)
+                    );
+                })
+                .collect(Collectors.toList());
     }
 
     @Data

@@ -12,21 +12,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Test {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "test_id")
     private Long testId;
-    
+
     @Column(name = "test_name", nullable = false)
     private String testName;
-    
+
     @Column(name = "category")
     private String category;
-    
+
     @Column(name = "duration", nullable = false)
     private Integer duration; // in minutes
-    
+
     @Column(name = "total_marks")
     private Integer totalMarks;
 
@@ -38,5 +38,10 @@ public class Test {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
-}
 
+    @Column(name = "created_by_admin")
+    private Boolean createdByAdmin = false;
+
+    @Column(name = "unique_link_id", unique = true)
+    private String uniqueLinkId;
+}

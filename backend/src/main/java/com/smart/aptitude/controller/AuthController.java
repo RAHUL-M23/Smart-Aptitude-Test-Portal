@@ -98,6 +98,116 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(responseUser);
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String name = payload.get("name");
+
+        if (email == null || email.isBlank() || name == null || name.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and Name are required"));
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        User user;
+
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+            if (user.getIsActive() != null && !user.getIsActive()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "This account has been deleted."));
+            }
+        } else {
+            // Register a new user with Google account details
+            user = new User();
+            user.setEmail(email);
+            user.setName(name);
+            // Secure random password
+            String randomPassword = java.util.UUID.randomUUID().toString();
+            user.setPassword(passwordEncoder.encode(randomPassword));
+            user.setRole("ROLE_STUDENT");
+            user.setIsActive(true);
+            
+            // Generate a unique roll number
+            String generatedRoll;
+            boolean exists;
+            do {
+                String randomSuffix = java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                generatedRoll = "G-" + randomSuffix;
+                exists = userRepository.existsByRollNumber(generatedRoll);
+            } while (exists);
+            
+            user.setRollNumber(generatedRoll);
+            user.setDepartment("General");
+            
+            user = userRepository.save(user);
+        }
+
+        // Return user details but remove password hash
+        User responseUser = new User();
+        responseUser.setId(user.getId());
+        responseUser.setName(user.getName());
+        responseUser.setEmail(user.getEmail());
+        responseUser.setRole(user.getRole());
+        responseUser.setRollNumber(user.getRollNumber());
+        responseUser.setDepartment(user.getDepartment());
+
+        return ResponseEntity.ok(responseUser);
+    }
+
+    @PostMapping("/guest")
+    public ResponseEntity<?> guestLogin(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String name = payload.get("name");
+
+        if (email == null || email.isBlank() || name == null || name.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and Name are required"));
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        User user;
+
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+            if (user.getIsActive() != null && !user.getIsActive()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "This account has been deleted."));
+            }
+        } else {
+            // Register a new user with Guest details
+            user = new User();
+            user.setEmail(email);
+            user.setName(name);
+            // Secure random password
+            String randomPassword = java.util.UUID.randomUUID().toString();
+            user.setPassword(passwordEncoder.encode(randomPassword));
+            user.setRole("ROLE_STUDENT");
+            user.setIsActive(true);
+            
+            // Generate a unique roll number
+            String generatedRoll;
+            boolean exists;
+            do {
+                String randomSuffix = java.util.UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+                generatedRoll = "GUEST-" + randomSuffix;
+                exists = userRepository.existsByRollNumber(generatedRoll);
+            } while (exists);
+            
+            user.setRollNumber(generatedRoll);
+            user.setDepartment("Guest");
+            
+            user = userRepository.save(user);
+        }
+
+        // Return user details but remove password hash
+        User responseUser = new User();
+        responseUser.setId(user.getId());
+        responseUser.setName(user.getName());
+        responseUser.setEmail(user.getEmail());
+        responseUser.setRole(user.getRole());
+        responseUser.setRollNumber(user.getRollNumber());
+        responseUser.setDepartment(user.getDepartment());
+
+        return ResponseEntity.ok(responseUser);
+    }
+
     @PutMapping("/profile/update")
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> payload) {
         String email = payload.get("email");

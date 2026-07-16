@@ -34,13 +34,6 @@ const PREDEFINED_TOPICS = {
   },
   "Non-Verbal Reasoning": {
     "Non-Verbal Reasoning": ["Mirror Images", "Water Images", "Figure Series", "Pattern Completion", "Paper Folding"]
-  },
-  "Frequently Asked Coding Aptitude Topics (IT Companies)": {
-    "Arrays": ["Reverse Array", "Largest Element", "Second Largest", "Rotate Array"],
-    "Strings": ["Reverse String", "Palindrome", "Anagram"],
-    "Searching & Sorting": ["Linear Search", "Binary Search", "Bubble Sort", "Selection Sort"],
-    "Collections": ["HashMap", "Stack", "Queue"],
-    "Basic Maths": ["Prime Number", "Factorial", "Fibonacci", "GCD/HCF", "LCM"]
   }
 };
 
@@ -79,6 +72,7 @@ export default function AdminDashboard() {
   const [targetTestId, setTargetTestId] = useState('');
   const [modalError, setModalError] = useState('');
   const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
 
   // Detailed Response Breakdown State
   const [showBreakdownModal, setShowBreakdownModal] = useState(false);
@@ -391,6 +385,7 @@ export default function AdminDashboard() {
     setCurrentQuestionId(null);
     setQuestionCategory('');
     setQuestionSubTopic('');
+    setImageUrl('');
     setModalError('');
   };
 
@@ -415,6 +410,7 @@ export default function AdminDashboard() {
     setTargetTestId(q.testId);
     setQuestionCategory(q.category || '');
     setQuestionSubTopic(q.subTopic || '');
+    setImageUrl(q.imageUrl || '');
     setModalError('');
     setShowQuestionModal(true);
   };
@@ -453,7 +449,8 @@ export default function AdminDashboard() {
       correctAnswer,
       testId: targetTestId,
       category: questionCategory,
-      subTopic: questionSubTopic
+      subTopic: questionSubTopic,
+      imageUrl
     };
 
     try {
@@ -886,6 +883,15 @@ export default function AdminDashboard() {
                     <div className="text-highlight" style={{ fontSize: '1.05rem', fontWeight: '500', marginBottom: '1rem', lineHeight: '1.4' }}>
                       {q.questionText}
                     </div>
+                    {q.imageUrl && (
+                      <div style={{ margin: '1rem 0' }}>
+                        <img 
+                          src={q.imageUrl} 
+                          alt="Question graphic reference" 
+                          style={{ maxHeight: '160px', maxWidth: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'block' }} 
+                        />
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
                       <div><span style={{ color: 'var(--color-secondary)', fontWeight: '600' }}>A:</span> {q.optiona}</div>
                       <div><span style={{ color: 'var(--color-secondary)', fontWeight: '600' }}>B:</span> {q.optionb}</div>
@@ -952,7 +958,6 @@ export default function AdminDashboard() {
                   <option value="Verbal Ability (English)">Verbal Ability (English)</option>
                   <option value="Data Sufficiency">Data Sufficiency</option>
                   <option value="Non-Verbal Reasoning">Non-Verbal Reasoning</option>
-                  <option value="Frequently Asked Coding Aptitude Topics (IT Companies)">Frequently Asked Coding Aptitude Topics (IT Companies)</option>
                 </select>
               </div>
 
@@ -1055,7 +1060,7 @@ export default function AdminDashboard() {
           <div style={{ marginTop: '3rem' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--text-main)' }}>Existing Assessments</h3>
             <div className="table-responsive">
-              <table className="marks-table">
+               <table className="marks-table">
                 <thead>
                   <tr>
                     <th>Test ID</th>
@@ -1064,6 +1069,7 @@ export default function AdminDashboard() {
                     <th>Topics</th>
                     <th>Duration</th>
                     <th>Marks</th>
+                    <th>Shareable Link</th>
                     <th>Expiry Timestamp</th>
                     <th>Actions</th>
                   </tr>
@@ -1091,6 +1097,24 @@ export default function AdminDashboard() {
                         </td>
                         <td>{t.duration} mins</td>
                         <td>{t.totalMarks}</td>
+                        <td>
+                          {t.uniqueLinkId ? (
+                            <button
+                              type="button"
+                              className="btn-nav"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', margin: 0, whiteSpace: 'nowrap', width: 'auto' }}
+                              onClick={() => {
+                                const link = `${window.location.origin}/test/take/${t.uniqueLinkId}`;
+                                navigator.clipboard.writeText(link);
+                                alert("Link copied to clipboard!");
+                              }}
+                            >
+                              📋 Copy Link
+                            </button>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>N/A</span>
+                          )}
+                        </td>
                         <td style={{ fontSize: '0.85rem' }}>
                           {t.expiryTimestamp ? formatDate(t.expiryTimestamp) : 'No expiry set'}
                         </td>
@@ -1336,6 +1360,50 @@ export default function AdminDashboard() {
                       )
                     }
                   </select>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ border: '1px dashed var(--border-color)', padding: '1rem', borderRadius: '8px', marginTop: '0.5rem' }}>
+                <label className="form-label" style={{ fontWeight: '600' }}>Question Image Support</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="Paste direct image URL (e.g. https://...)"
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>OR</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setImageUrl(reader.result);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}
+                    />
+                  </div>
+                  {imageUrl && (
+                    <div style={{ marginTop: '0.5rem', textAlign: 'center', position: 'relative' }}>
+                      <img src={imageUrl} alt="Uploaded Preview" style={{ maxHeight: '120px', maxWidth: '100%', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                      <button 
+                        type="button" 
+                        className="btn-logout" 
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', display: 'block', margin: '0.25rem auto' }}
+                        onClick={() => setImageUrl('')}
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

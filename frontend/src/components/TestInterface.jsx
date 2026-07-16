@@ -4,6 +4,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
   const [test, setTest] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [visitedIndices, setVisitedIndices] = useState(new Set([0]));
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -12,19 +13,56 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
   const [result, setResult] = useState(null);
 
   const timerRef = useRef(null);
+  const submittingRef = useRef(false);
+  const submitAnswersRef = useRef(null);
 
   const [hasStarted, setHasStarted] = useState(false);
   const [isFullscreenViolation, setIsFullscreenViolation] = useState(false);
+  const [violationTerminated, setViolationTerminated] = useState(false);
+
+  submitAnswersRef.current = submitAnswers;
 
   useEffect(() => {
-    if (!hasStarted || result) return;
+    if (!hasStarted || result || violationTerminated) return;
+
+    const handleStrictViolation = (reason) => {
+      if (submittingRef.current) return;
+      console.warn(`Strict proctoring violation: ${reason}`);
+      setViolationTerminated(true);
+      if (submitAnswersRef.current) {
+        submitAnswersRef.current();
+      }
+    };
 
     const handleFullscreenChange = () => {
       const isCurrentlyFullscreen = !!document.fullscreenElement;
       if (!isCurrentlyFullscreen) {
-        setIsFullscreenViolation(true);
+        if (test?.createdByAdmin) {
+          handleStrictViolation("Exited fullscreen mode.");
+        } else {
+          setIsFullscreenViolation(true);
+        }
       } else {
         setIsFullscreenViolation(false);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (test?.createdByAdmin) {
+          handleStrictViolation("Tab switched or browser window minimized.");
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (test?.createdByAdmin) {
+        // Slight delay to check if focus is truly lost
+        setTimeout(() => {
+          if (!document.hasFocus()) {
+            handleStrictViolation("Lost window focus.");
+          }
+        }, 200);
       }
     };
 
@@ -33,13 +71,22 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
+    if (test?.createdByAdmin) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('blur', handleWindowBlur);
+    }
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      if (test?.createdByAdmin) {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('blur', handleWindowBlur);
+      }
     };
-  }, [hasStarted, result]);
+  }, [hasStarted, result, test, violationTerminated]);
 
   function handleStartTest() {
     const elem = document.documentElement;
@@ -60,6 +107,9 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
   };
 
   async function submitAnswers() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     if (timerRef.current) clearInterval(timerRef.current);
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(err => console.error(err));
@@ -99,6 +149,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
       const data = await response.json();
       setResult(data);
     } catch (err) {
+      submittingRef.current = false;
       setError(err.message || 'Failed to submit answers. Your results could not be saved.');
     } finally {
       setSubmitting(false);
@@ -144,12 +195,24 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
   }
 
   useEffect(() => {
+    setCurrentIndex(0);
+    setVisitedIndices(new Set([0]));
     fetchTestDetails();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testId]);
+
+  useEffect(() => {
+    if (hasStarted && !result && questions.length > 0) {
+      setVisitedIndices((prev) => {
+        const next = new Set(prev);
+        next.add(currentIndex);
+        return next;
+      });
+    }
+  }, [currentIndex, hasStarted, result, questions.length]);
 
   function handleSelectOption(questionId, optionKey) {
     setSelectedAnswers((prev) => ({
@@ -305,11 +368,14 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
         <div className="glass-card result-card">
           <div style={{ marginBottom: '1.5rem' }}>
             <div className="test-category">{test?.category}</div>
-            <h1 style={{ fontSize: '2.25rem', fontWeight: '800', marginTop: '0.25rem' }}>
-              Assessment Completed!
+            <h1 style={{ fontSize: '2.25rem', fontWeight: '800', marginTop: '0.25rem', color: violationTerminated ? '#ef4444' : 'inherit' }}>
+              {violationTerminated ? "Assessment Terminated!" : "Assessment Completed!"}
             </h1>
-            <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              Here is your performance breakdown for <strong>{test?.testName}</strong>
+            <p style={{ color: violationTerminated ? '#ef4444' : 'var(--text-muted)', marginTop: '0.5rem', fontWeight: violationTerminated ? '600' : 'normal' }}>
+              {violationTerminated 
+                ? "⚠️ This test was auto-submitted due to a fullscreen/tab switch violation." 
+                : `Here is your performance breakdown for ${test?.testName}`
+              }
             </p>
           </div>
 
@@ -371,7 +437,7 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
     <div className="main-content test-interface-wrapper">
       <div className="test-header">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>{test?.testName}</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Online Assessment</h2>
           <div className="progress-indicator" style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
             Assessment in Progress
           </div>
@@ -382,80 +448,156 @@ export default function TestInterface({ testId, user, onReturnToDashboard }) {
         </div>
       </div>
 
-      {submitting ? (
+      {violationTerminated ? (
+        <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', borderColor: '#ef4444', maxWidth: '600px', margin: '2rem auto' }}>
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" style={{ marginBottom: '1.5rem', filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.4))' }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <h2 style={{color: '#ef4444', marginBottom: '1rem'}}>Test Terminated!</h2>
+          <p style={{color: 'var(--text-muted)', lineHeight: '1.6'}}>
+            A proctoring violation (fullscreen exit or focus loss) was detected. Your test has been terminated and auto-submitted. You are not allowed to retake it. Calculating final results...
+          </p>
+        </div>
+      ) : submitting ? (
         <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 0' }}>
           <h2 style={{color: 'var(--color-secondary)'}}>Submitting and calculating score...</h2>
         </div>
-      ) :
-        currentQuestion ? (
-          <div className="glass-card question-card">
-            <div className="question-text">
-              {currentQuestion.questionText}
-            </div>
+      ) : (
+        <div className="test-layout-container">
+          <div className="test-question-section">
+            {currentQuestion ? (
+              <div className="glass-card question-card">
+                <div className="question-text">
+                  {currentQuestion.questionText}
+                </div>
 
-            <div className="options-grid">
-              {[
-                { key: 'A', text: currentQuestion.optiona },
-                { key: 'B', text: currentQuestion.optionb },
-                { key: 'C', text: currentQuestion.optionc },
-                { key: 'D', text: currentQuestion.optiond },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  className={`option-button ${selectedAnswers[currentQuestion.questionId] === opt.key ? 'selected' : ''}`}
-                  onClick={() => handleSelectOption(currentQuestion.questionId, opt.key)}
-                >
-                  <span className="option-prefix">{opt.key}</span>
-                  <span>{opt.text}</span>
-                </button>
-              ))}
-            </div>
+                {currentQuestion.imageUrl && (
+                  <div style={{ margin: '1.5rem 0', display: 'flex', justifyContent: 'center' }}>
+                    <img 
+                      src={currentQuestion.imageUrl} 
+                      alt="Question reference illustration" 
+                      style={{ maxHeight: '300px', maxWidth: '100%', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)' }} 
+                    />
+                  </div>
+                )}
 
-            <div className="test-navigation">
-              <button
-                className="btn-nav"
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((prev) => prev - 1)}
-              >
-                Previous
-              </button>
-              
-              {isLastQuestion ? (
-                <button
-                  className="btn-submit-test"
-                  onClick={handleSubmitClick}
-                  disabled={Object.keys(selectedAnswers).length < totalQuestions}
-                  title={Object.keys(selectedAnswers).length < totalQuestions ? "Please answer all questions before submitting" : "Submit assessment answers"}
-                >
-                  Submit Test
-                </button>
-              ) : (
-                <button
-                  className="btn-nav"
-                  onClick={() => setCurrentIndex((prev) => prev + 1)}
-                >
-                  Next
-                </button>
-              )}
-            </div>
+                <div className="options-grid">
+                  {[
+                    { key: 'A', text: currentQuestion.optiona },
+                    { key: 'B', text: currentQuestion.optionb },
+                    { key: 'C', text: currentQuestion.optionc },
+                    { key: 'D', text: currentQuestion.optiond },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      className={`option-button ${selectedAnswers[currentQuestion.questionId] === opt.key ? 'selected' : ''}`}
+                      onClick={() => handleSelectOption(currentQuestion.questionId, opt.key)}
+                    >
+                      <span className="option-prefix">{opt.key}</span>
+                      <span>{opt.text}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="test-navigation">
+                  <button
+                    className="btn-nav"
+                    disabled={currentIndex === 0}
+                    onClick={() => setCurrentIndex((prev) => prev - 1)}
+                  >
+                    Previous
+                  </button>
+                  
+                  {isLastQuestion ? (
+                    <button
+                      className="btn-submit-test"
+                      onClick={handleSubmitClick}
+                      disabled={Object.keys(selectedAnswers).length < totalQuestions}
+                      title={Object.keys(selectedAnswers).length < totalQuestions ? "Please answer all questions before submitting" : "Submit assessment answers"}
+                    >
+                      Submit Test
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-nav"
+                      onClick={() => setCurrentIndex((prev) => prev + 1)}
+                    >
+                      Next
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="glass-card question-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                <div className="question-text" style={{ marginBottom: '2rem', fontSize: '1.25rem' }}>
+                  This test section currently has no questions assigned to it. The timer is running for you to complete this session.
+                </div>
+                <div className="test-navigation" style={{ justifyContent: 'center' }}>
+                  <button
+                    className="btn-submit-test"
+                    style={{ width: 'auto', minWidth: '200px' }}
+                    onClick={submitAnswers}
+                  >
+                    Submit and Finish Test
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="glass-card question-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-            <div className="question-text" style={{ marginBottom: '2rem', fontSize: '1.25rem' }}>
-              This test section currently has no questions assigned to it. The timer is running for you to complete this session.
+
+          {/* Question Palette Sidebar */}
+          {questions.length > 0 && (
+            <div className="glass-card test-palette-section">
+              <h3 className="palette-title">Question Palette</h3>
+              <div className="palette-grid">
+                {questions.map((q, idx) => {
+                  const isCurrent = idx === currentIndex;
+                  const isAnswered = !!selectedAnswers[q.questionId];
+                  const isVisited = visitedIndices.has(idx);
+                  
+                  let stateClass = 'unvisited';
+                  if (isAnswered) {
+                    stateClass = 'answered';
+                  } else if (isVisited) {
+                    stateClass = 'unanswered';
+                  }
+                  
+                  return (
+                    <button
+                      key={q.questionId}
+                      className={`palette-btn ${stateClass} ${isCurrent ? 'current' : ''}`}
+                      onClick={() => setCurrentIndex(idx)}
+                      title={`Go to Question ${idx + 1}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="palette-legend">
+                <div className="legend-item">
+                  <div className="legend-dot current"></div>
+                  <span>Current Question</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-dot answered"></div>
+                  <span>Answered</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-dot unanswered"></div>
+                  <span>Unanswered (Skipped)</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-dot unvisited"></div>
+                  <span>Unvisited</span>
+                </div>
+              </div>
             </div>
-            <div className="test-navigation" style={{ justifyContent: 'center' }}>
-              <button
-                className="btn-submit-test"
-                style={{ width: 'auto', minWidth: '200px' }}
-                onClick={submitAnswers}
-              >
-                Submit and Finish Test
-              </button>
-            </div>
-          </div>
-        )
-      }
+          )}
+        </div>
+      )}
     </div>
   );
 }
